@@ -1,0 +1,115 @@
+name: Build Flutter APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Download Tajawal Font
+        run: |
+          mkdir -p assets/fonts
+          curl -L -o assets/fonts/Tajawal-Regular.ttf "https://github.com/google/fonts/raw/main/ofl/tajawal/Tajawal%5Bwght%5D.ttf"
+          cp assets/fonts/Tajawal-Regular.ttf assets/fonts/Tajawal-Bold.ttf
+          cp assets/fonts/Tajawal-Regular.ttf assets/fonts/Tajawal-Medium.ttf
+          cp assets/fonts/Tajawal-Regular.ttf assets/fonts/Tajawal-Light.ttf
+
+      - name: Create placeholder image
+        run: |
+          mkdir -p assets/images
+          echo "" > assets/images/.gitkeep
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze project
+        run: flutter analyze --no-fatal-infos
+        continue-on-error: true
+
+      - name: Build APK
+        run: flutter build apk --release --split-per-abi
+
+      - name: Build App Bundle
+        run: flutter build appbundle --release
+        continue-on-error: true
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-release
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+          retention-days: 30
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-bundle
+          path: build/app/outputs/bundle/release/*.aab
+          retention-days: 30
+        continue-on-error: true
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download APK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: apk-release
+          path: ./artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: "EPI Bot v${{ github.run_number }}"
+          body: |
+            ## 💉🇾🇪 مستشار التحصين الصحي الموسع - اليمن
+            
+            ### التحديثات:
+            - تحسينات في الذكاء الاصطناعي
+            - قاعدة معرفة موسّعة (144+ موضوع)
+            - محرك NLP عربي متقدم
+            - مدير سياق عميق
+            
+            ### الملفات:
+            - `app-arm64-v8a-release.apk` - أجهزة حديثة (مُوصى)
+            - `app-armeabi-v7a-release.apk` - أجهزة قديمة
+            - `app-x86_64-release.apk` - محاكي
+            
+            ### التشغيل:
+            ```bash
+            flutter pub get
+            flutter run
+            ```
+          files: ./artifacts/*.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
