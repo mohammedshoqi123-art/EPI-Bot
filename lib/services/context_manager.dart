@@ -248,7 +248,7 @@ class ContextManager {
   /// إعادة تعيين
   void reset() {
     lastTopic = ''; lastVaccine = ''; lastDisease = '';
-    pendingClarification = ''; awaitingClarification = '';
+    pendingClarification = ''; awaitingClarification = false;
     clarificationContext = ''; clarificationOptions = [];
     phase = ConversationPhase.greeting;
     history.clear(); extractedEntities.clear();

@@ -46,7 +46,7 @@ class ChatService extends ChangeNotifier {
   //  المعالجة الرئيسية مع السياق العميق
   // ══════════════════════════════════════════════════════════════
 
-  _BotResponse _process(String raw) {
+  _Resp _process(String raw) {
     final norm = SmartNLP.normalize(raw);
     final intent = SmartNLP.detectIntent(norm, previousIntent: _ctx.lastTopic, lastTopic: _ctx.lastTopic);
 
@@ -59,7 +59,7 @@ class ChatService extends ChangeNotifier {
     if (clar.needs) {
       _ctx.awaitingClarification = true;
       _ctx.clarificationContext = intent;
-      return _BotResponse(clar.question, clar.options.map((o) => QuickReply(o, '❓')).toList());
+      return _Resp(clar.question, clar.options.map((o) => QuickReply(text: o, emoji: '❓')).toList());
     }
 
     // ═══ إذا كان ينتظر توضيح ═══
@@ -165,19 +165,19 @@ class ChatService extends ChangeNotifier {
       buf.writeln('\n📋 ${_ctx.buildConsultationContext()}');
       _record('age_query', n);
       return _Resp(buf.toString(), [
-        const QuickReply('وش الآثار الجانبية؟', '⚠️'),
-        const QuickReply('هل أطعم وهو مريض؟', '🤒'),
-        const QuickReply('وين أطعمه؟', '📍'),
-        const QuickReply('هل مجاني؟', '💰'),
+        const QuickReply(text: 'وش الآثار الجانبية؟', emoji: '⚠️'),
+        const QuickReply(text: 'هل أطعم وهو مريض؟', emoji: '🤒'),
+        const QuickReply(text: 'وين أطعمه؟', emoji: '📍'),
+        const QuickReply(text: 'هل مجاني؟', emoji: '💰'),
       ]);
     }
 
     _ctx.awaitingClarification = true;
     _ctx.clarificationContext = 'age_query';
     return _Resp('📅 كم عمر طفلك؟', [
-      const QuickReply('عمره شهر', '📅'), const QuickReply('عمره 3 شهور', '📅'),
-      const QuickReply('عمره 6 شهور', '📅'), const QuickReply('عمره 9 شهور', '📅'),
-      const QuickReply('عمره سنة', '📅'),
+      const QuickReply(text: 'عمره شهر', emoji: '📅'), const QuickReply(text: 'عمره 3 شهور', emoji: '📅'),
+      const QuickReply(text: 'عمره 6 شهور', emoji: '📅'), const QuickReply(text: 'عمره 9 شهور', emoji: '📅'),
+      const QuickReply(text: 'عمره سنة', emoji: '📅'),
     ]);
   }
 
@@ -197,7 +197,7 @@ class ChatService extends ChangeNotifier {
         '• لا تحتاج تبدأ من جديد\n'
         '• استأنف الجدول لما يتحسن\n\n'
         '💡 متى يرجع يتحسن؟ ارجع لي وأقولك وش التطعيمات اللي فاتته.',
-        [const QuickReply('متى أرجع أطعمه؟', '⏰'), const QuickReply('وش الآثار؟', '⚠️')],
+        [const QuickReply(text: 'متى أرجع أطعمه؟', emoji: '⏰'), const QuickReply(text: 'وش الآثار؟', emoji: '⚠️')],
       );
     }
     return _Resp('تمام! 👍 إذا احتجت شيء ثاني أنا هنا.', _welcomeReplies());
@@ -237,7 +237,7 @@ class ChatService extends ChangeNotifier {
         '3. لا تضع شيء في فمه\n'
         '4. دوّن مدة التشنج\n\n'
         '⏰ لا تنتظر — اذهب للمستشفى الآن!',
-        [const QuickReply('وش أسوي؟', '🚨'), const QuickReply('متى أخاف؟', '⚠️')],
+        [const QuickReply(text: 'وش أسوي؟', emoji: '🚨'), const QuickReply(text: 'متى أخاف؟', emoji: '⚠️')],
       );
     }
 
@@ -249,7 +249,7 @@ class ChatService extends ChangeNotifier {
         '🏥 استشر الطبيب قبل التطعيم\n'
         '⏳ يؤجل التطعيم حتى يتحسن\n\n'
         '📌 لكن إذا كان مرض بسيط (زكام، إسهال خفيف) ← يُطعم عادي!',
-        [const QuickReply('متى أرجع أطعمه؟', '⏰'), const QuickReply('وش أعراض الخطر؟', '🚨')],
+        [const QuickReply(text: 'متى أرجع أطعمه؟', emoji: '⏰'), const QuickReply(text: 'وش أعراض الخطر؟', emoji: '🚨')],
       );
     }
 
@@ -261,7 +261,7 @@ class ChatService extends ChangeNotifier {
       '• حرارة أكثر من 38.5° ← انتظر 24 ساعة ⏳\n'
       '• مرض شديد ← انتظر حتى يتحسن ⏳\n\n'
       '💡 وش أعراض طفلك بالضبط؟',
-      [const QuickReply('حرارته عالية', '🌡️'), const QuickReply('عنده إسهال', '💧'), const QuickReply('يسعل', '😷')],
+      [const QuickReply(text: 'حرارته عالية', emoji: '🌡️'), const QuickReply(text: 'عنده إسهال', emoji: '💧'), const QuickReply(text: 'يسعل', emoji: '😷')],
     );
   }
 
@@ -321,7 +321,7 @@ class ChatService extends ChangeNotifier {
       '━━ خلال يومين ━━\n'
       '🟡 حرارة مستمرة 48 ساعة\n🟡 تورم يزداد\n🟡 قيء مستمر\n\n'
       '⏰ انتظر 15-30 دقيقة بعد التطعيم في المركز!',
-      [const QuickReply('حرارة بعد التطعيم', '🌡️'), const QuickReply('تشنجات', '🚨')],
+      [const QuickReply(text: 'حرارة بعد التطعيم', emoji: '🌡️'), const QuickReply(text: 'تشنجات', emoji: '🚨')],
     );
   }
 
@@ -340,9 +340,9 @@ class ChatService extends ChangeNotifier {
     }
     _ctx.lastTopic = 'أساطير';
     return _Resp(_kb['أساطير']!, [
-      const QuickReply('هل يسبب أوتيزم؟', '🚫'),
-      const QuickReply('هل يسبب عقم؟', '🚫'),
-      const QuickReply('هل مضرة؟', '🚫'),
+      const QuickReply(text: 'هل يسبب أوتيزم؟', emoji: '🚫'),
+      const QuickReply(text: 'هل يسبب عقم؟', emoji: '🚫'),
+      const QuickReply(text: 'هل مضرة؟', emoji: '🚫'),
     ]);
   }
 
@@ -357,9 +357,9 @@ class ChatService extends ChangeNotifier {
     if (n.contains('قلب')) { _ctx.lastTopic = 'قلب'; return _Resp(_kb['الأطفال المصابين بالقلب'] ?? '🟡 عيوب القلب: جميع التطعيمات آمنة ومهمة!', _ctxReplies('special')); }
     if (n.contains('ربو')) { _ctx.lastTopic = 'ربو'; return _Resp('🟡 الأطفال المصابون بالربو:\n\n✅ جميع التطعيمات آمنة ومهمة!\n• الربو لا يمنع أي تطعيم\n• بل التطعيم يحميهم من عدوى تزيد الربو\n\n💡 استشر طبيب الربو', _ctxReplies('special')); }
     return _Resp('👶 حالات خاصة:', [
-      const QuickReply('مبتسرين', '👶'), const QuickReply('مرضى', '🤒'),
-      const QuickReply('حوامل', '🤰'), const QuickReply('HIV', '🔴'),
-      const QuickReply('سكر', '🟡'), const QuickReply('قلب', '❤️'),
+      const QuickReply(text: 'مبتسرين', emoji: '👶'), const QuickReply(text: 'مرضى', emoji: '🤒'),
+      const QuickReply(text: 'حوامل', emoji: '🤰'), const QuickReply(text: 'HIV', emoji: '🔴'),
+      const QuickReply(text: 'سكر', emoji: '🟡'), const QuickReply(text: 'قلب', emoji: '❤️'),
     ]);
   }
 
@@ -372,7 +372,7 @@ class ChatService extends ChangeNotifier {
       buf.writeln('');
     }
     buf.writeln('📊 المجموع: ${VaccinationService.allVaccines.length} تطعيم ضد 11 مرض\n💡 اكتب عمر طفلك لمعرفة تطعيماته!');
-    return _Resp(buf.toString(), [const QuickReply('عمره 6 أشهر', '📅'), const QuickReply('وش الآثار؟', '⚠️')]);
+    return _Resp(buf.toString(), [const QuickReply(text: 'عمره 6 أشهر', emoji: '📅'), const QuickReply(text: 'وش الآثار؟', emoji: '⚠️')]);
   }
 
   _Resp _handleDose(String n) {
@@ -390,7 +390,7 @@ class ChatService extends ChangeNotifier {
       final match = VaccinationService.allVaccines.where((x) => x.id == v).firstOrNull;
       if (match != null) return _Resp('${match.iconEmoji} ${match.nameAr}\n\n📝 ${match.description}\n💉 ${match.doseNumber}\n📍 ${match.site}', _ctxReplies(v));
     }
-    return _Resp(_kb['ما هي اللقاحات']!, [const QuickReply('كيف تعمل؟', '🔬'), const QuickReply('هل آمنة؟', '✅')]);
+    return _Resp(_kb['ما هي اللقاحات']!, [const QuickReply(text: 'كيف تعمل؟', emoji: '🔬'), const QuickReply(text: 'هل آمنة؟', emoji: '✅')]);
   }
 
   _Resp _handleDiseases(String n) {
@@ -400,7 +400,7 @@ class ChatService extends ChangeNotifier {
       final t = dm[d];
       if (t != null && _kb.containsKey(t)) { _ctx.lastTopic = t; return _Resp(_kb[t]!, _ctxReplies('disease')); }
     }
-    return _Resp('🦠 الأمراض التي تحمي منها التطعيمات:\n\n1. السل\n2. شلل الأطفال\n3. الخناق\n4. الكزاز\n5. السعال الديبي\n6. التهاب الكبد B\n7. المستدمية النزلية\n8. الحصبة\n9. الحصبة الألمانية\n10. المكورات الرئوية\n11. الروتا فيروس\n\n💡 اسألني عن أي مرض!', [const QuickReply('الحصبة', '🦠'), const QuickReply('الشلل', '🦠')]);
+    return _Resp('🦠 الأمراض التي تحمي منها التطعيمات:\n\n1. السل\n2. شلل الأطفال\n3. الخناق\n4. الكزاز\n5. السعال الديبي\n6. التهاب الكبد B\n7. المستدمية النزلية\n8. الحصبة\n9. الحصبة الألمانية\n10. المكورات الرئوية\n11. الروتا فيروس\n\n💡 اسألني عن أي مرض!', [const QuickReply(text: 'الحصبة', emoji: '🦠'), const QuickReply(text: 'الشلل', emoji: '🦠')]);
   }
 
   _Resp _handleNutrition(String n) {
@@ -413,10 +413,10 @@ class ChatService extends ChangeNotifier {
     _ctx.lastTopic = 'سلسلة التبريد'; return _Resp(_kb['سلسلة التبريد']!, _ctxReplies('cold_chain'));
   }
 
-  _Resp _handleLocation() => _Resp(_kb['أين التطعيم']!, [const QuickReply('هل مجاني؟', '💰'), const QuickReply('متى التطعيم؟', '📅')]);
-  _Resp _handleCost() => _Resp(_kb['مجاناً']!, [const QuickReply('وين أطعم؟', '📍'), const QuickReply('متى التطعيم؟', '📅')]);
-  _Resp _handleCampaigns() => _Resp(_kb['حملات التطعيم']!, [const QuickReply('وين أطعم؟', '📍'), const QuickReply('هل مجاني؟', '💰')]);
-  _Resp _handleTravel() => _Resp(_kb['السفر والتطعيم']!, [const QuickReply('هل مجاني؟', '💰'), const QuickReply('وش التطعيمات؟', '💉')]);
+  _Resp _handleLocation() => _Resp(_kb['أين التطعيم']!, [const QuickReply(text: 'هل مجاني؟', emoji: '💰'), const QuickReply(text: 'متى التطعيم؟', emoji: '📅')]);
+  _Resp _handleCost() => _Resp(_kb['مجاناً']!, [const QuickReply(text: 'وين أطعم؟', emoji: '📍'), const QuickReply(text: 'متى التطعيم؟', emoji: '📅')]);
+  _Resp _handleCampaigns() => _Resp(_kb['حملات التطعيم']!, [const QuickReply(text: 'وين أطعم؟', emoji: '📍'), const QuickReply(text: 'هل مجاني؟', emoji: '💰')]);
+  _Resp _handleTravel() => _Resp(_kb['السفر والتطعيم']!, [const QuickReply(text: 'هل مجاني؟', emoji: '💰'), const QuickReply(text: 'وش التطعيمات؟', emoji: '💉')]);
   _Resp _handleHistory() => _Resp(_kb['تاريخ التحصين في اليمن']!, _welcomeReplies());
   _Resp _handleBenefits() => _Resp(_kb['فوائد اقتصادية']!, _welcomeReplies());
 
@@ -459,25 +459,25 @@ class ChatService extends ChangeNotifier {
   }
 
   List<QuickReply> _welcomeReplies() => const [
-    QuickReply('وش تطعيمات طفلي؟', '💉'), QuickReply('وش الآثار الجانبية؟', '⚠️'),
-    QuickReply('هل مجاني؟', '💰'), QuickReply('الفرق OPV و IPV؟', '🔵'),
-    QuickReply('هل يسبب أوتيزم؟', '🚫'), QuickReply('ولدي مريض', '🤒'),
-    QuickReply('وش السلسلة الباردة؟', '❄️'), QuickReply('وش هو VVM؟', '🔍'),
-    QuickReply('الأمراض', '🦠'), QuickReply('التغذية', '🍼'),
+    QuickReply(text: 'وش تطعيمات طفلي؟', emoji: '💉'), QuickReply(text: 'وش الآثار الجانبية؟', emoji: '⚠️'),
+    QuickReply(text: 'هل مجاني؟', emoji: '💰'), QuickReply(text: 'الفرق OPV و IPV؟', emoji: '🔵'),
+    QuickReply(text: 'هل يسبب أوتيزم؟', emoji: '🚫'), QuickReply(text: 'ولدي مريض', emoji: '🤒'),
+    QuickReply(text: 'وش السلسلة الباردة؟', emoji: '❄️'), QuickReply(text: 'وش هو VVM؟', emoji: '🔍'),
+    QuickReply(text: 'الأمراض', emoji: '🦠'), QuickReply(text: 'التغذية', emoji: '🍼'),
   ];
 
   List<QuickReply> _ctxReplies(String topic) {
     final m = {
-      'bcg': [const QuickReply('وش الآثار؟', '⚠️'), const QuickReply('وش التندب؟', '🔴')],
-      'opv': [const QuickReply('الفرق OPV و IPV؟', '🔵'), const QuickReply('هل اليمن خالية؟', '🎉')],
-      'penta': [const QuickReply('وش الآثار؟', '⚠️'), const QuickReply('كم جرعة؟', '🔢')],
-      'mr': [const QuickReply('متى يُعطى؟', '📅'), const QuickReply('وش الآثار؟', '⚠️')],
-      'side_effects': [const QuickReply('حرارة بعد التطعيم', '🌡️'), const QuickReply('تشنجات', '🚨'), const QuickReply('متى أخاف؟', '⚠️')],
-      'special': [const QuickReply('مبتسرين', '👶'), const QuickReply('مرضى', '🤒'), const QuickReply('سكر', '🟡')],
-      'myths': [const QuickReply('هل يسبب أوتيزم؟', '🚫'), const QuickReply('هل يسبب عقم؟', '🚫')],
-      'nutrition': [const QuickReply('الرضاعة والتطعيم', '🍼'), const QuickReply('فيتامين أ', '🌟')],
-      'cold_chain': [const QuickReply('وش هو VVM؟', '🔍'), const QuickReply('المحاقن', '💉')],
-      'disease': [const QuickReply('وش التطعيم؟', '💉'), const QuickReply('وش الآثار؟', '⚠️')],
+      'bcg': [const QuickReply(text: 'وش الآثار؟', emoji: '⚠️'), const QuickReply(text: 'وش التندب؟', emoji: '🔴')],
+      'opv': [const QuickReply(text: 'الفرق OPV و IPV؟', emoji: '🔵'), const QuickReply(text: 'هل اليمن خالية؟', emoji: '🎉')],
+      'penta': [const QuickReply(text: 'وش الآثار؟', emoji: '⚠️'), const QuickReply(text: 'كم جرعة؟', emoji: '🔢')],
+      'mr': [const QuickReply(text: 'متى يُعطى؟', emoji: '📅'), const QuickReply(text: 'وش الآثار؟', emoji: '⚠️')],
+      'side_effects': [const QuickReply(text: 'حرارة بعد التطعيم', emoji: '🌡️'), const QuickReply(text: 'تشنجات', emoji: '🚨'), const QuickReply(text: 'متى أخاف؟', emoji: '⚠️')],
+      'special': [const QuickReply(text: 'مبتسرين', emoji: '👶'), const QuickReply(text: 'مرضى', emoji: '🤒'), const QuickReply(text: 'سكر', emoji: '🟡')],
+      'myths': [const QuickReply(text: 'هل يسبب أوتيزم؟', emoji: '🚫'), const QuickReply(text: 'هل يسبب عقم؟', emoji: '🚫')],
+      'nutrition': [const QuickReply(text: 'الرضاعة والتطعيم', emoji: '🍼'), const QuickReply(text: 'فيتامين أ', emoji: '🌟')],
+      'cold_chain': [const QuickReply(text: 'وش هو VVM؟', emoji: '🔍'), const QuickReply(text: 'المحاقن', emoji: '💉')],
+      'disease': [const QuickReply(text: 'وش التطعيم؟', emoji: '💉'), const QuickReply(text: 'وش الآثار؟', emoji: '⚠️')],
     };
     return m[topic] ?? _welcomeReplies();
   }
@@ -501,8 +501,3 @@ class _Resp {
   _Resp(this.text, this.quickReplies);
 }
 
-class QuickReply {
-  final String text;
-  final String emoji;
-  const QuickReply(this.text, this.emoji);
-}

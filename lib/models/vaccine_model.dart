@@ -1,3 +1,10 @@
+/// زر رد سريع
+class QuickReply {
+  final String text;
+  final String emoji;
+  const QuickReply({required this.text, required this.emoji});
+}
+
 class Vaccine {
   final String id;
   final String nameAr;
