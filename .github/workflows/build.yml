@@ -40,6 +40,9 @@ jobs:
           mkdir -p assets/images
           echo "" > assets/images/.gitkeep
 
+      - name: Generate platform directories
+        run: flutter create . --org ye.gov.health --project-name yemen_epi_bot --platforms android --no-overwrite
+
       - name: Install dependencies
         run: flutter pub get
 
