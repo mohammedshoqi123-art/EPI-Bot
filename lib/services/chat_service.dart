@@ -35,7 +35,7 @@ class ChatService extends ChangeNotifier {
     _messages.add(ChatMessage(id: _gid(), text: text, isBot: false, timestamp: DateTime.now()));
     notifyListeners();
 
-    final ms = 300 + min(text.length * 6, 1000);
+    final ms = 300 + (text.length * 6).clamp(0, 1000);
     Future.delayed(Duration(milliseconds: ms), () {
       final resp = _process(text);
       _addBotMessage(resp.text, quickReplies: resp.quickReplies);
