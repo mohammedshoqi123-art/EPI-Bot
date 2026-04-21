@@ -377,6 +377,45 @@ class ChatService extends ChangeNotifier {
       return _Resp(_kb['الوصايا الذهبية للتطعيم'] ?? '', _welcomeReplies());
     }
 
+    // --- تطعيمات محددة ---
+    if (norm.contains('تطعيم الحصبه') || norm.contains('لقاح الحصبه') || norm.contains('تطعيم حصبه')) {
+      _ctx.lastTopic = 'الحصبة';
+      return _Resp(_kb['الحصبة'] ?? '', _ctxReplies('mr'));
+    }
+    if (norm.contains('تطعيم الخماسي') || norm.contains('لقاح الخماسي')) {
+      _ctx.lastTopic = 'الخماسي';
+      return _Resp(_kb['الخماسي'] ?? '', _ctxReplies('penta'));
+    }
+    if (norm.contains('تطعيم شلل') || norm.contains('لقاح شلل') || norm.contains('قطرات شلل')) {
+      _ctx.lastTopic = 'شلل الأطفال';
+      return _Resp(_kb['شلل الأطفال'] ?? '', _ctxReplies('opv'));
+    }
+    if (norm.contains('تطعيم الروتا') || norm.contains('لقاح الروتا') || norm.contains('روتا فيروس')) {
+      _ctx.lastTopic = 'الروتا';
+      return _Resp(_kb['الروتا'] ?? '', _ctxReplies('rota'));
+    }
+    if (norm.contains('تطعيم الرئوي') || norm.contains('لقاح الرئوي') || norm.contains('تطعيم المكورات')) {
+      _ctx.lastTopic = 'التطعيم الرئوي';
+      return _Resp(_kb['التطعيم الرئوي'] ?? '', _ctxReplies('pcv'));
+    }
+    // --- فهم الاستجابة ---
+    if (norm.contains('وش معنى') || norm.contains('ايش معنى') || norm.contains('وش المقصود')) {
+      return _Resp(
+        '📝 معلومات عامة عن التحصين:\n\n'
+        '💉 التحصين = حماية طفلك من الأمراض الخطيرة!\n\n'
+        '📋 البرنامج يغطي 11 مرض:\n'
+        '• الدرن (السل) • شلل الأطفال\n'
+        '• الخناق • السعال الديبي • الكزاز\n'
+        '• التهاب الكبد B • المستدمية النزلية\n'
+        '• الحصبة • الحصبة الألمانية\n'
+        '• المكورات الرئوية • الروتا فيروس\n\n'
+        '📅 27 تطعيم من الولادة حتى 12 سنة\n'
+        '🏥 جميعها مجانية في المراكز الصحية\n\n'
+        '💡 قولي "جدول التحصين" لأعطيك الموعد الكامل!',
+        _welcomeReplies(),
+      );
+    }
+
     return null; // لم يتم التعرف على الرسالة مباشرة
   }
 
@@ -1097,14 +1136,35 @@ class ChatService extends ChangeNotifier {
     final age = SmartNLP.extractAge(n);
     if (age != null) return _handleAge(n);
 
-    // محاولة أخيرة — بحث بالكلمات الجزئية
+    // محاولة أخيرة — بحث بالكلمات الجزئية والمرادفات
     final words = n.split(' ').where((w) => w.length > 2).toList();
     for (final word in words) {
       for (final key in _kb.keys) {
         final kn = SmartNLP.normalize(key);
+        // تطابق مباشر
         if (kn.contains(word) && word.length > 3) {
           _ctx.lastTopic = key;
           return _Resp(_kb[key] ?? '', _ctxReplies(key));
+        }
+        // تطبيق المرادفات
+        final syns = SmartNLP._synonyms[word];
+        if (syns != null) {
+          for (final syn in syns) {
+            for (final key in _kb.keys) {
+              if (SmartNLP.normalize(key).contains(syn)) {
+                _ctx.lastTopic = key;
+                return _Resp(_kb[key] ?? '', _ctxReplies(key));
+              }
+            }
+          }
+        }
+        // بحث في القيم أيضاً
+        for (final key in _kb.keys) {
+          final val = SmartNLP.normalize(_kb[key] ?? '');
+          if (val.contains(word) && word.length > 4) {
+            _ctx.lastTopic = key;
+            return _Resp(_kb[key] ?? '', _ctxReplies(key));
+          }
         }
       }
     }

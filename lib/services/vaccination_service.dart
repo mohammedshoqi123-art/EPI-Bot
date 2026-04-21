@@ -272,21 +272,6 @@ class VaccinationService extends ChangeNotifier {
       contraindications: ['ضعف المناعة الشديد'],
       notes: 'تُعطى مع MR1 في عمر 9 أشهر لتعزيز المناعة ضد شلل الأطفال',
     ),
-    Vaccine(
-      id: 'vitA_1',
-      nameAr: 'فيتامين أ - جرعة 6 أشهر',
-      nameEn: 'Vitamin A - 100,000 IU (6 months)',
-      description: 'كبسولة فيتامين أ (100,000 وحدة دولية) - تقوي جهاز المناعة وتمنع العمى الليلي',
-      dueMonths: 6,
-      doseNumber: 'جرعة واحدة (كبسولة زرقاء)',
-      route: 'oral',
-      site: 'عن طريق الفم',
-      color: '#F39C12',
-      iconEmoji: '🌟',
-      sideEffects: ['لا توجد آثار جانبية شائعة'],
-      contraindications: [],
-      notes: 'تُعطى في عمر 6 أشهر. كبسولة زرقاء تحتوي على 100,000 وحدة دولية. تقوي المناعة وتقلل وفيات الحصبة بنسبة 50%',
-    ),
 
     // ──────────── عمر 12 شهر ────────────
     Vaccine(
@@ -487,7 +472,6 @@ class VaccinationService extends ChangeNotifier {
   Map<String, List<Vaccine>> getFullSchedule() {
     return {
       'عند الولادة': allVaccines.where((v) => v.dueWeeks == 0).toList(),
-      '6 أشهر (فيتامين أ)': allVaccines.where((v) => v.dueMonths == 6).toList(),
       '6 أسابيع': allVaccines.where((v) => v.dueWeeks == 6).toList(),
       '10 أسابيع': allVaccines.where((v) => v.dueWeeks == 10).toList(),
       '14 أسبوع': allVaccines.where((v) => v.dueWeeks == 14).toList(),
