@@ -54,6 +54,10 @@ class ChatService extends ChangeNotifier {
       return _Resp('العفو! 😊 أي سؤال ثاني عن التحصين أنا موجود!', _welcomeReplies());
     }
 
+    // ═══ معالجة مباشرة للرسائل الشائعة (Quick Replies) ═══
+    final directResp = _handleDirectInput(norm, raw);
+    if (directResp != null) return directResp;
+
     // ═══ معالجة أسئلة متعددة في رسالة واحدة ═══
     final parts = SmartNLP.splitMultipleQuestions(raw);
     if (parts.length > 1) {
@@ -134,6 +138,201 @@ class ChatService extends ChangeNotifier {
 
     // ═══ رد افتراضي ذكي ═══
     return _handleDefault(norm);
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  //  معالجة مباشرة للرسائل الشائعة (Quick Replies) — تضمن عملها 100%
+  // ══════════════════════════════════════════════════════════════
+
+  _Resp? _handleDirectInput(String norm, String raw) {
+    // --- تطعيمات الطفل ---
+    if (norm.contains('تطعيمات طفلي') || norm.contains('تطعيمات الطفل') ||
+        norm.contains('وش تطعيمات') || norm.contains('ايش تطعيمات') ||
+        norm.contains('وش لقاحات') || norm.contains('ايش لقاحات') ||
+        norm.contains('تطعيمات ولدي') || norm.contains('تطعيمات بنتي')) {
+      if (_ctx.child.hasBasicInfo) return _handleAge(norm);
+      _ctx.awaitingClarification = true;
+      _ctx.clarificationContext = 'age_query';
+      return _Resp('📅 عشان أقدر أعطيك تطعيمات طفلك بالضبط، كم عمره؟', [
+        const QuickReply(text: 'عمره شهر', emoji: '📅'), const QuickReply(text: 'عمره 3 شهور', emoji: '📅'),
+        const QuickReply(text: 'عمره 6 شهور', emoji: '📅'), const QuickReply(text: 'عمره 9 شهور', emoji: '📅'),
+        const QuickReply(text: 'عمره سنة', emoji: '📅'),
+      ]);
+    }
+
+    // --- الآثار الجانبية ---
+    if (norm.contains('الاثار الجانبيه') || norm.contains('الآثار الجانبية') ||
+        norm.contains('وش الآثار') || norm.contains('ايش الآثار') ||
+        norm.contains('وش اثار') || norm.contains('وش يصير بعد') ||
+        norm.contains('وش الآثار الجانبيه')) {
+      _ctx.lastTopic = 'آثار جانبية';
+      return _Resp(_kb['آثار جانبية'] ?? '', _ctxReplies('side_effects'));
+    }
+
+    // --- مجاني ---
+    if (norm.contains('مجاني') || norm.contains('هل مجاني') || norm.contains('مجانا') || norm.contains('بلاش')) {
+      _ctx.lastTopic = 'مجاناً';
+      return _Resp(_kb['مجاناً'] ?? '', [const QuickReply(text: 'وين أطعم؟', emoji: '📍'), const QuickReply(text: 'متى التطعيم؟', emoji: '📅')]);
+    }
+
+    // --- الفرق بين OPV و IPV ---
+    if ((norm.contains('الفرق') && norm.contains('opv') && norm.contains('ipv')) ||
+        (norm.contains('الفرق') && norm.contains('شلل'))) {
+      _ctx.lastTopic = 'الفرق بين OPV و IPV';
+      return _Resp(_kb['الفرق بين OPV و IPV'] ?? '', _ctxReplies('cold_chain'));
+    }
+
+    // --- أوتيزم ---
+    if (norm.contains('اوتيزم') || norm.contains('هل يسبب اوتيزم') || norm.contains('توحد')) {
+      _ctx.lastTopic = 'التطعيم والتوحد';
+      return _Resp(_kb['التطعيم والتوحد'] ?? '', _ctxReplies('myths'));
+    }
+
+    // --- عقم ---
+    if (norm.contains('عقم') || norm.contains('هل يسبب عقم') || norm.contains('خصوبه')) {
+      _ctx.lastTopic = 'التطعيم والعقم';
+      return _Resp(_kb['التطعيم والعقم'] ?? '', _ctxReplies('myths'));
+    }
+
+    // --- هل التطعيمات مضرة ---
+    if (norm.contains('هل التطعيمات مضرة') || norm.contains('هل مضرة') || norm.contains('هل التطعيم ضار') || norm.contains('هل اللقاح ضار')) {
+      _ctx.lastTopic = 'هل التطعيم يضر';
+      return _Resp(_kb['هل التطعيم يضر'] ?? '', _ctxReplies('myths'));
+    }
+
+    // --- هل تحتوي مواد ضارة ---
+    if (norm.contains('هل تحتوي') || norm.contains('مواد ضارة') || norm.contains('مركبات ضارة')) {
+      _ctx.lastTopic = 'أساطير';
+      return _Resp(_kb['أساطير'] ?? '', _ctxReplies('myths'));
+    }
+
+    // --- ولدي مريض ---
+    if (norm.contains('ولدي مريض') || norm.contains('طفلي مريض') || norm.contains('طفله مريض') ||
+        norm.contains('ولد مريض') || norm.contains('بنت مريض')) {
+      return _handleChildSick(norm);
+    }
+
+    // --- الأشراف الداعم ---
+    if (norm.contains('الاشراف الداعم') || norm.contains('الأشراف الداعم')) {
+      return _handleSupervision(norm);
+    }
+
+    // --- إدارة المستوى الوسيط ---
+    if (norm.contains('المستوى الوسيط') || norm.contains('اداره المستوى') || norm.contains('ادارة المستوى')) {
+      return _handleManagement(norm);
+    }
+
+    // --- الأمراض ---
+    if (norm.contains('الامراض') || norm.contains('الأمراض') || norm.contains('وش الامراض') || norm.contains('ايش الامراض')) {
+      return _handleDiseases(norm);
+    }
+
+    // --- التغذية ---
+    if (norm.contains('التغذيه') || norm.contains('التغذية')) {
+      return _handleNutrition(norm);
+    }
+
+    // --- متى أخاف ---
+    if (norm.contains('متى اخاف') || norm.contains('متى اخاف عليه') || norm.contains('متى اقلق')) {
+      return _handleEmergency(norm);
+    }
+
+    // --- متى أروح للطبيب ---
+    if (norm.contains('متى اروح للطبيب') || norm.contains('متى اروح لدكتور') || norm.contains('متى استشير')) {
+      return _handleEmergency(norm);
+    }
+
+    // --- هل مجاني ---
+    if (norm.contains('هل مجاني') || norm.contains('هل بفلوس') || norm.contains('هل يكلف')) {
+      _ctx.lastTopic = 'مجاناً';
+      return _Resp(_kb['مجاناً'] ?? '', [const QuickReply(text: 'وين أطعم؟', emoji: '📍'), const QuickReply(text: 'متى التطعيم؟', emoji: '📅')]);
+    }
+
+    // --- وين أطعم ---
+    if (norm.contains('وين اطعم') || norm.contains('اين اطعم') || norm.contains('وين اوديه') || norm.contains('فين اطعم')) {
+      return _handleLocation();
+    }
+
+    // --- هل اليمن خالية ---
+    if (norm.contains('هل اليمن خاليه') || norm.contains('هل اليمن خالية')) {
+      _ctx.lastTopic = 'شلل الأطفال';
+      return _Resp(_kb['شلل الأطفال المرض'] ?? '', _ctxReplies('opv'));
+    }
+
+    // --- متى التطعيم / متى التطعيمات ---
+    if (norm.contains('متى التطعيم') || norm.contains('متى التطعيمات')) {
+      _ctx.lastTopic = 'متى أطعم';
+      return _Resp(_kb['متى أطعم'] ?? '', _ctxReplies('vaccine_list'));
+    }
+
+    // --- كم جرعة (generic) ---
+    if (norm.contains('كم جرعة') || norm.contains('كم جرعه') || norm.contains('كم حقه') || norm.contains('كم حقنة')) {
+      final v = SmartNLP.detectVaccineMention(norm);
+      if (v != null) return _handleDose(norm);
+      return _handleDose(norm);
+    }
+
+    // --- مبتسرين / خُدّج ---
+    if (norm.contains('مبتسرين') || norm.contains('خديج') || norm.contains('مبتسر') || norm.contains('خُدّج')) {
+      _ctx.lastTopic = 'للأطفال المبتسرين';
+      return _Resp(_kb['للأطفال المبتسرين'] ?? '', _ctxReplies('special'));
+    }
+
+    // --- حوامل ---
+    if (norm.contains('حوامل') || norm.contains('حامل')) {
+      _ctx.lastTopic = 'الحوامل';
+      return _Resp(_kb['الحوامل'] ?? '', _ctxReplies('special'));
+    }
+
+    // --- HIV ---
+    if (norm.contains('hiv') || norm.contains('ايدز')) {
+      _ctx.lastTopic = 'HIV';
+      return _Resp(_kb['تطعيم الأطفال المصابين بـ HIV'] ?? '', _ctxReplies('special'));
+    }
+
+    // --- سكر ---
+    if (norm.contains('سكر') && !norm.contains('ما ي')) {
+      _ctx.lastTopic = 'سكري';
+      return _Resp(_kb['الأطفال المصابين بالسكري'] ?? '', _ctxReplies('special'));
+    }
+
+    // --- قلب ---
+    if (norm.contains('قلب') && norm.contains('طفل')) {
+      _ctx.lastTopic = 'قلب';
+      return _Resp(_kb['الأطفال المصابين بالقلب'] ?? '', _ctxReplies('special'));
+    }
+
+    // --- الرضاعة والتطعيم ---
+    if (norm.contains('الرضاعه') || norm.contains('الرضاعة')) {
+      _ctx.lastTopic = 'الرضاعة والتطعيم';
+      return _Resp(_kb['الرضاعة والتطعيم'] ?? '', _ctxReplies('nutrition'));
+    }
+
+    // --- فيتامين أ ---
+    if (norm.contains('فيتامين')) {
+      _ctx.lastTopic = 'فيتامين أ';
+      return _Resp(_kb['فيتامين أ'] ?? '', _ctxReplies('nutrition'));
+    }
+
+    // --- VVM ---
+    if (norm.contains('vvm') || norm.contains('وش هو vvm')) {
+      _ctx.lastTopic = 'VVM';
+      return _Resp(_kb['VVM'] ?? '', _ctxReplies('cold_chain'));
+    }
+
+    // --- السلسلة الباردة / التبريد ---
+    if (norm.contains('السلسله البارده') || norm.contains('سلسلة التبريد') || norm.contains('التبريد')) {
+      _ctx.lastTopic = 'سلسلة التبريد';
+      return _Resp(_kb['سلسلة التبريد'] ?? '', _ctxReplies('cold_chain'));
+    }
+
+    // --- المحاقن ---
+    if (norm.contains('المحاقن')) {
+      _ctx.lastTopic = 'المحاقن';
+      return _Resp(_kb['المحاقن'] ?? '', _ctxReplies('cold_chain'));
+    }
+
+    return null; // لم يتم التعرف على الرسالة مباشرة
   }
 
   // ══════════════════════════════════════════════════════════════
