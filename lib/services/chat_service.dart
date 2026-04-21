@@ -113,13 +113,13 @@ class ChatService extends ChangeNotifier {
       default: break;
     }
 
-    // ═══ بحث ذكي في القاموس الموسع ═══
-    final ext = _searchExt(norm);
-    if (ext != null) { _ctx.lastTopic = ext; _record('general', norm); return _Resp(_kb[ext] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies(ext)); }
-
-    // ═══ بحث ضبابي في قاعدة المعرفة ═══
-    final kb = _searchKB(norm);
-    if (kb != null) { _ctx.lastTopic = kb; _record('general', norm); return _Resp(_kb[kb] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies(kb)); }
+    // ═══ بحث ذكي شامل ═══
+    final found = _smartSearch(norm);
+    if (found != null) {
+      _ctx.lastTopic = found;
+      _record('general', norm);
+      return _Resp(_kb[found] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies(found));
+    }
 
     // ═══ رد افتراضي ذكي ═══
     return _handleDefault(norm);
@@ -551,6 +551,19 @@ class ChatService extends ChangeNotifier {
     final age = SmartNLP.extractAge(n);
     if (age != null) return _handleAge(n);
 
+    // محاولة أخيرة — بحث بالكلمات الجزئية
+    final words = n.split(' ').where((w) => w.length > 2).toList();
+    for (final word in words) {
+      for (final key in _kb.keys) {
+        final kn = SmartNLP.normalize(key);
+        if (kn.contains(word) && word.length > 3) {
+          _ctx.lastTopic = key;
+          return _Resp(_kb[key] ?? '', _ctxReplies(key));
+        }
+      }
+    }
+
+    // رد ذكي حسب سياق المحادثة
     if (_ctx.turnCount <= 1) {
       return _Resp(
         '🤖 أهلاً! أنا مستشار التحصين الذكي 🇾🇪\n\n'
@@ -562,6 +575,14 @@ class ChatService extends ChangeNotifier {
         '• "ولدي حرارته 39 وش أسوي؟"\n'
         '• "وش الأشراف الداعم؟"\n\n'
         'أو اختر من الاقتراحات 👇',
+        _welcomeReplies(),
+      );
+    }
+
+    if (_ctx.lastTopic.isNotEmpty) {
+      return _Resp(
+        '🤔 مش فاهم قصدك بالضبط. تبي تعرف أكثر عن "${_ctx.lastTopic}"؟\n\n'
+        '💡 أو جرب تسأل بطريقة ثانية — أنا هنا أساعدك!',
         _welcomeReplies(),
       );
     }
@@ -586,23 +607,87 @@ class ChatService extends ChangeNotifier {
   Map<String, String> get _kb => unifiedKnowledgeBase;
 
   String? _searchExt(String n) {
+    // أولاً: بحث مباشر في خريطة الكلمات المفتاحية الموسّعة
     for (final e in extendedKeywordMap.entries) {
       for (final kw in e.value) {
         if (n.contains(kw.toLowerCase()) && _kb.containsKey(e.key)) return e.key;
+      }
+    }
+    // ثانياً: بحث في الاقتراحات السريعة
+    for (final e in quickRepliesByTopic.entries) {
+      if (e.key == 'default') continue;
+      for (final reply in e.value) {
+        final rn = SmartNLP.normalize(reply);
+        if (n.contains(rn) || rn.contains(n)) {
+          // حاول إيجاد مفتاح مطابق في قاعدة المعرفة
+          for (final k in _kb.keys) {
+            if (SmartNLP.normalize(k).contains(rn) || rn.contains(SmartNLP.normalize(k))) return k;
+          }
+        }
       }
     }
     return null;
   }
 
   String? _searchKB(String n) {
+    final inputKw = SmartNLP.extractKeywords(n);
+    if (inputKw.isEmpty) return null;
+
     double best = 0; String? bestKey;
     for (final key in _kb.keys) {
       final kn = SmartNLP.normalize(key);
+      // تطابق مباشر
       if (n.contains(kn) || kn.contains(n)) return key;
-      final score = SmartNLP.calculateRelevance(n, SmartNLP.extractKeywords(kn));
+
+      // تطابق بالكلمات المفتاحية
+      final keyKw = SmartNLP.extractKeywords(kn);
+      int directHits = 0;
+      for (final kw in keyKw) {
+        for (final iw in inputKw) {
+          if (iw == kw || iw.contains(kw) || kw.contains(iw)) { directHits++; break; }
+        }
+      }
+      if (keyKw.isNotEmpty) {
+        final directScore = directHits / keyKw.length;
+        if (directScore > best) { best = directScore; bestKey = key; }
+      }
+
+      // تطابق بالمرادفات
+      final score = SmartNLP.calculateRelevance(n, keyKw);
       if (score > best) { best = score; bestKey = key; }
     }
-    return best > 0.3 ? bestKey : null;
+    return best > 0.15 ? bestKey : null;  // خفض العتبة من 0.3 إلى 0.15
+  }
+
+  /// بحث ذكي شامل — يجمع كل الطرق
+  String? _smartSearch(String n) {
+    // 1. بحث في الكلمات المفتاحية الموسّعة
+    final ext = _searchExt(n);
+    if (ext != null) return ext;
+
+    // 2. بحث ضبابي في قاعدة المعرفة
+    final kb = _searchKB(n);
+    if (kb != null) return kb;
+
+    // 3. بحث بالكلمات الفردية — أي كلمة في السؤال تطابق مفتاح؟
+    final words = n.split(' ').where((w) => w.length > 2).toList();
+    for (final word in words) {
+      for (final key in _kb.keys) {
+        final kn = SmartNLP.normalize(key);
+        if (kn.contains(word) && word.length > 3) return key;
+      }
+    }
+
+    // 4. بحث عكسي — هل أي مفتاح يحتوي على كلمات السؤال؟
+    for (final key in _kb.keys) {
+      final kn = SmartNLP.normalize(key);
+      final keyWords = kn.split(' ');
+      for (final kw in keyWords) {
+        if (kw.length > 3 && n.contains(kw)) return key;
+      }
+    }
+
+    return null;
   }
 
   void _record(String intent, String msg) {

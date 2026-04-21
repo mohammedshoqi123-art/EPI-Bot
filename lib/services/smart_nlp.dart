@@ -147,7 +147,7 @@ class SmartNLP {
     var d = RegExp(r'(\d+)\s*(يوم|ايام)').firstMatch(n);
     if (d != null) return (weeks: 0, months: 0, days: int.parse(d.group(1)!));
 
-    // أنماط "عمره X"
+    // أنماط "عمره X" / "عندو X" / "عندها X"
     var a = RegExp(r'عمره?\s*(\d+)').firstMatch(n);
     if (a != null) {
       final v = int.tryParse(a.group(1)!);
@@ -162,6 +162,16 @@ class SmartNLP {
     if (h != null) {
       final v = int.tryParse(h.group(1)!);
       if (v != null && v <= 72) return (weeks: 0, months: v, days: 0);
+    }
+    var hd = RegExp(r'عندو\s*(\d+)').firstMatch(n);
+    if (hd != null) {
+      final v = int.tryParse(hd.group(1)!);
+      if (v != null && v <= 72) return (weeks: 0, months: v, days: 0);
+    }
+    var hw = RegExp(r'عندو\s*(\S+)').firstMatch(n);
+    if (hw != null) {
+      final num = parseArabicNumber(hw.group(1)!);
+      if (num != null && num <= 72) return (weeks: 0, months: num, days: 0);
     }
 
     if (n.contains('سنه') && !n.contains('سنتين') && !n.contains('سنين')) {
@@ -311,23 +321,33 @@ class SmartNLP {
       return 'schedule_query';
     }
 
-    // ── تطعيمات ──
-    if (RegExp(r'تطعيم|لقاح|ياخذ|لازم|مطلوب|وش ياخذ|ايش ياخذ|وش لازم|ايش لازم')
+    // ── تطعيمات (أولوية عالية بعد الطوارئ والآثار) ──
+    if (RegExp(r'تطعيم|لقاح|ياخذ|لازم|مطلوب|وش ياخذ|ايش ياخذ|وش لازم|ايش لازم|وش التطعيم|ايش التطعيم|التطعيمات|اللقاحات|زباره|زبارات|حقنه|حقنات')
         .hasMatch(n)) {
       if (previousIntent == 'age_query' || lastTopic?.contains('عمر') == true) return 'age_query';
+      // إذا كان السؤال عن عمر محدد
+      if (RegExp(r'عمر|شهر|اسبوع|عند|عنده|عندو').hasMatch(n)) return 'age_query';
       return 'vaccine_list';
     }
 
+    // ── جدول ──
+    if (RegExp(r'جدول|الجدول|متى يعطى|متى ياخذ|متى التطعيم|الزبارات|الزباره|كل التطعيمات')
+        .hasMatch(n)) return 'schedule_query';
+
     // ── جرعات ──
-    if (RegExp(r'كم جرعه|كم مره|عدد|جرعات|كم حقه|كم مره ياخذ|كم عدد')
+    if (RegExp(r'كم جرعه|كم مره|عدد|جرعات|كم حقه|كم مره ياخذ|كم عدد|كم حقنه')
         .hasMatch(n)) return 'dose_count';
 
+    // ── تحديث / معلومات ──
+    if (RegExp(r'حدث|تحديث|update|معلومات جديده|معلومات حديثه|المعلومات')
+        .hasMatch(n)) return 'schedule_query';
+
     // ── موقع ──
-    if (RegExp(r'وين|اين|مكان|مركز|مستشفى|عياده|وين اطعم|اين اطعم|وين اروح')
+    if (RegExp(r'وين|اين|مكان|مركز|مستشفى|عياده|وين اطعم|اين اطعم|وين اروح|وين يعطوا|فين')
         .hasMatch(n)) return 'location';
 
     // ── تكلفة ──
-    if (RegExp(r'مجاني|مجانا|سعر|تكلفه|رسوم|فلوس|ثمن|بكم|كم يكلف|بلاش|كم يكلفني')
+    if (RegExp(r'مجاني|مجانا|سعر|تكلفه|رسوم|فلوس|ثمن|بكم|كم يكلف|بلاش|كم يكلفني|بفلوس')
         .hasMatch(n)) return 'cost';
 
     // ── حملات ──
@@ -335,15 +355,15 @@ class SmartNLP {
         .hasMatch(n)) return 'campaigns';
 
     // ── أنواع ──
-    if (RegExp(r'نوع|انواع|وش الفرق|ايش الفرق|كيف يشتغل|كيف يعمل|وش هو')
+    if (RegExp(r'نوع|انواع|وش الفرق|ايش الفرق|كيف يشتغل|كيف يعمل|وش هو|ايش هو')
         .hasMatch(n)) return 'vaccine_types';
 
     // ── أساطير ──
-    if (RegExp(r'اسطوره|خرافه|اكاذيب|مضره|يضر|يسبب|autism|اوتيزم|يشل|عقم|خصوبه|يكبّر')
+    if (RegExp(r'اسطوره|خرافه|اكاذيب|مضره|يضر|يسبب|autism|اوتيزم|يشل|عقم|خصوبه|يكبّر|بيضر')
         .hasMatch(n)) return 'myths';
 
     // ── حالات خاصة ──
-    if (RegExp(r'مبتسر|خديج|مريض|مرضعه|حامل|سكر|قلب|سرطان|hiv|ايدز|ربو|صرع| allergies')
+    if (RegExp(r'مبتسر|خديج|مريض|مرضعه|حامل|سكر|قلب|سرطان|hiv|ايدز|ربو|صرع')
         .hasMatch(n)) return 'special_cases';
 
     // ── أشراف وإدارة ──
@@ -353,7 +373,7 @@ class SmartNLP {
         .hasMatch(n)) return 'management';
 
     // ── تغذية ──
-    if (RegExp(r'تغذيه|اكل|غذاء|ياكل|رضاعه|يرضع|حليب|فيتامين|vitamin')
+    if (RegExp(r'تغذيه|اكل|غذاء|ياكل|رضاعه|يرضع|حليب|فيتامين|vitamin|ياكل كويس')
         .hasMatch(n)) return 'nutrition';
 
     // ── سلسلة تبريد ──
@@ -361,7 +381,7 @@ class SmartNLP {
         .hasMatch(n)) return 'cold_chain';
 
     // ── متابعة ──
-    if (RegExp(r'^(نعم|ايوه|ايه|اي|يب|ايه نعم|لا|كم|ليه|ليش|اشرح|وضح|بالتفصيل|تفاصيل|طيب|تمام|واضح|فهمت|اوكي|زين|اوك|اوك ايه|ايوه تمام)')
+    if (RegExp(r'^(نعم|ايوه|ايه|اي|يب|ايه نعم|لا|كم|ليه|ليش|اشرح|وضح|بالتفصيل|تفاصيل|طيب|تمام|واضح|فهمت|اوكي|زين|اوك)')
         .hasMatch(n)) return 'follow_up';
 
     // ── سفر ──
