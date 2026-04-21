@@ -189,7 +189,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                       const SizedBox(width: 10),
                       _featurePill('📵', 'بدون إنترنت'),
                       const SizedBox(width: 10),
-                      _featurePill('📚', '50+ موضوع'),
+                      _featurePill('📚', '140+ موضوع'),
                     ],
                   ).animate().fadeIn(delay: 800.ms, duration: 600.ms),
 

@@ -17,10 +17,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   final List<_SchedulePhase> _phases = [
     _SchedulePhase('عند الولادة', '0', '🟢', 0, 0),
+    _SchedulePhase('6 أشهر', '6 أشهر', '⭐', 0, 6),
     _SchedulePhase('6 أسابيع', '6 أسابيع', '🟡', 6, 0),
     _SchedulePhase('10 أسابيع', '10 أسابيع', '🟠', 10, 0),
     _SchedulePhase('14 أسبوع', '14 أسبوع', '🔴', 14, 0),
     _SchedulePhase('9 أشهر', '9 أشهر', '🟣', 0, 9),
+    _SchedulePhase('12 شهر', '12 شهر', '🌟', 0, 12),
     _SchedulePhase('15 شهر', '15 شهر', '🔵', 0, 15),
     _SchedulePhase('18 شهر', '18 شهر', '💪', 0, 18),
     _SchedulePhase('6 سنوات', '6 سنوات', '🏫', 0, 72),
