@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../constants/app_theme.dart';
 import '../models/vaccine_model.dart';
 import '../services/chat_service.dart';
+import '../services/llm_service.dart';
+import '../screens/ai_settings_screen.dart';
 import '../widgets/chat_widgets.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -105,15 +107,18 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     Container(
                       width: 8,
                       height: 8,
-                      decoration: const BoxDecoration(
-                        color: Colors.greenAccent,
+                      decoration: BoxDecoration(
+                        color: chatService.isAIEnabled ? Colors.greenAccent : Colors.orangeAccent,
                         shape: BoxShape.circle,
                       ),
                     ).animate(onPlay: (c) => c.repeat()).fadeIn(duration: 800.ms).then().fadeOut(duration: 800.ms),
                     const SizedBox(width: 6),
-                    const Text(
-                      'متصل • بدون إنترنت',
-                      style: TextStyle(fontSize: 11, color: Colors.greenAccent),
+                    Text(
+                      chatService.isAIEnabled ? 'متصل • AI مفعّل 🧠' : 'متصل • بدون AI',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: chatService.isAIEnabled ? Colors.greenAccent : Colors.orangeAccent,
+                      ),
                     ),
                   ],
                 ),
@@ -128,7 +133,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           onPressed: _showSearchSheet,
           tooltip: 'بحث سريع',
         ),
-        PopupMenuButton<String>(
+          PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert),
           onSelected: (value) {
             switch (value) {
@@ -138,9 +143,25 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               case 'info':
                 _showBotInfo();
                 break;
+              case 'ai_settings':
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AISettingsScreen()),
+                );
+                break;
             }
           },
           itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'ai_settings',
+              child: Row(
+                children: [
+                  Icon(Icons.smart_toy, size: 20),
+                  SizedBox(width: 8),
+                  Text('إعدادات الذكاء الاصطناعي', style: TextStyle(fontFamily: 'Tajawal')),
+                ],
+              ),
+            ),
             const PopupMenuItem(
               value: 'clear',
               child: Row(

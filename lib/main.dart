@@ -7,19 +7,23 @@ import 'services/chat_service.dart';
 import 'services/vaccination_service.dart';
 import 'screens/splash_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const YemenEPIBot());
+  // تهيئة الذكاء الاصطناعي في الخلفية
+  final chatService = ChatService();
+  chatService.initializeAI();
+  runApp(YemenEPIBot(chatService: chatService));
 }
 
 class YemenEPIBot extends StatelessWidget {
-  const YemenEPIBot({super.key});
+  final ChatService chatService;
+  const YemenEPIBot({super.key, required this.chatService});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ChatService()),
+        ChangeNotifierProvider.value(value: chatService),
         ChangeNotifierProvider(create: (_) => VaccinationService()),
       ],
       child: MaterialApp(

@@ -1,7 +1,7 @@
 name: yemen_epi_bot
 description: مستشار برنامج التحصين الصحي الموسع باليمن - Yemen EPI Immunization Advisor Bot
 publish_to: 'none'
-version: 2.2.0+4
+version: 3.0.0+5
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -21,6 +21,9 @@ dependencies:
   shimmer: ^3.0.0
   fl_chart: ^0.66.0
   confetti: ^0.7.0
+  http: ^1.2.0
+  connectivity_plus: ^6.0.3
+  dart_jsonwebtoken: ^2.14.0
 
 dev_dependencies:
   flutter_test:

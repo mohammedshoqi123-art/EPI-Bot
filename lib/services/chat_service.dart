@@ -5,11 +5,57 @@ import 'vaccination_service.dart';
 import 'knowledge_base.dart';
 import 'smart_nlp.dart';
 import 'context_manager.dart';
+import 'llm_service.dart';
+import 'real_data_kb.dart';
+import 'analytics_engine.dart';
+import 'advanced_immunization_kb.dart';
+import 'intermediate_management_kb.dart';
+import 'deep_analytics_engine.dart';
+import 'supervision_module.dart';
 
 class ChatService extends ChangeNotifier {
   final List<ChatMessage> _messages = [];
   List<ChatMessage> get messages => List.unmodifiable(_messages);
   final ContextManager _ctx = ContextManager();
+
+  // ══════════════════════════════════════════════════════════════
+  //  حالة الذكاء الاصطناعي
+  // ══════════════════════════════════════════════════════════════
+  bool _isAIEnabled = false;
+  bool _isAILoading = false;
+  bool get isAIEnabled => _isAIEnabled;
+  bool get isAILoading => _isAILoading;
+  AIIStatus get aiStatus => LLMService.currentStatus;
+
+  /// تفعيل/تعطيل الذكاء الاصطناعي
+  void setAIEnabled(bool enabled) {
+    _isAIEnabled = enabled;
+    notifyListeners();
+  }
+
+  /// تهيئة الذكاء الاصطناعي
+  Future<void> initializeAI() async {
+    await LLMService.loadConfig();
+    if (LLMService.apiKey.isNotEmpty) {
+      _isAIEnabled = true;
+      final connected = await LLMService.testConnection();
+      _isAIEnabled = connected;
+    }
+    notifyListeners();
+  }
+
+  /// إعداد مفتاح API
+  Future<bool> configureAI(String apiKey, {String? baseUrl, String? model}) async {
+    await LLMService.configure(
+      apiKey: apiKey,
+      baseUrl: baseUrl,
+      model: model,
+    );
+    final connected = await LLMService.testConnection();
+    _isAIEnabled = connected;
+    notifyListeners();
+    return connected;
+  }
 
   void initialize() {
     if (_messages.isEmpty) {
@@ -24,7 +70,10 @@ class ChatService extends ChangeNotifier {
         '🚫 الرد على الأساطير (التوحد، العقم...)\n'
         '🏥 الأشراف الداعم وإدارة المستوى الوسيط\n'
         '❄️ سلسلة التبريد و VVM\n'
-        '📜 تاريخ التحصين في اليمن\n\n'
+        '📜 تاريخ التحصين في اليمن\n'
+        '📊 مؤشرات الأداء والتخطيط الدقيق\n'
+        '🦠 الاستجابة للأوباء والرصد الوبائي\n'
+        '🏫 تحصين المدارس\n\n'
         '💡 قولي عمر طفلك وأعطيك تطعيماته!',
         quickReplies: _welcomeReplies(),
       );
@@ -35,11 +84,106 @@ class ChatService extends ChangeNotifier {
     _messages.add(ChatMessage(id: _gid(), text: text, isBot: false, timestamp: DateTime.now()));
     notifyListeners();
 
-    final ms = (200 + (text.length * 5)).clamp(200, 1200);
-    Future.delayed(Duration(milliseconds: ms.toInt()), () {
+    // ═══ محاولة استخدام الذكاء الاصطناعي أولاً ═══
+    if (_isAIEnabled && LLMService.isOnline) {
+      _sendMessageToAI(text);
+    } else {
+      // استخدام النظام المحلي (fallback)
+      final ms = (200 + (text.length * 5)).clamp(200, 1200);
+      Future.delayed(Duration(milliseconds: ms.toInt()), () {
+        final resp = _process(text);
+        _addBotMessage(resp.text, quickReplies: resp.quickReplies);
+      });
+    }
+  }
+
+  /// إرسال الرسالة للذكاء الاصطناعي مع RAG
+  void _sendMessageToAI(String text) async {
+    _isAILoading = true;
+    notifyListeners();
+
+    try {
+      // بناء تاريخ المحادثة
+      final history = <Map<String, String>>[];
+      for (final msg in _messages) {
+        history.add({
+          'role': msg.isBot ? 'assistant' : 'user',
+          'content': msg.text,
+        });
+      }
+
+      // إرسال للLLM
+      final response = await LLMService.sendMessage(
+        userMessage: text,
+        conversationHistory: history,
+        childProfile: _ctx.child.toJson(),
+      );
+
+      _isAILoading = false;
+
+      if (response.isFromLLM && response.text.isNotEmpty) {
+        // نجح LLM — استخدم الرد الذكي
+        _ctx.lastTopic = _extractTopicFromMessage(text);
+        _record('ai_response', text);
+
+        // إنشاء اقتراحات رد سريع ذكية
+        final suggestions = LLMService.generateQuickReplySuggestions(text, response.text);
+        final quickReplies = suggestions.map((s) {
+          final emoji = _getEmojiForSuggestion(s);
+          return QuickReply(text: s, emoji: emoji);
+        }).toList();
+
+        _addBotMessage(response.text, quickReplies: quickReplies);
+      } else {
+        // فشل LLM — استخدم النظام المحلي
+        final resp = _process(text);
+        _addBotMessage(resp.text, quickReplies: resp.quickReplies);
+      }
+    } catch (e) {
+      _isAILoading = false;
+      // خطأ — استخدم النظام المحلي
       final resp = _process(text);
       _addBotMessage(resp.text, quickReplies: resp.quickReplies);
-    });
+    }
+  }
+
+  /// استخراج الموضوع من الرسالة
+  String _extractTopicFromMessage(String text) {
+    final norm = SmartNLP.normalize(text);
+    final topicKeywords = {
+      'تطعيم': 'التطعيمات', 'لقاح': 'اللقاحات', 'تحصين': 'التحصين',
+      'اثار': 'الآثار الجانبية', 'جانبي': 'الآثار الجانبية',
+      'حصبه': 'الحصبة', 'شلل': 'شلل الأطفال', 'خماسي': 'الخماسي',
+      'رئوي': 'التطعيم الرئوي', 'روتا': 'الروتا', 'bcg': 'BCG',
+      'اشراف': 'الإشراف الداعم', 'وسيط': 'إدارة المستوى الوسيط',
+      'سلسله': 'سلسلة التبريد', 'تبريد': 'سلسلة التبريد',
+      'حمل': 'حملات التطعيم', 'مدرس': 'تحصين المدارس',
+      'مبتسر': 'الأطفال المبتسرين', 'حوامل': 'تطعيم الحوامل',
+      'توحد': 'التطعيم والتوحد', 'عقم': 'التطعيم والعقم',
+    };
+    for (final entry in topicKeywords.entries) {
+      if (norm.contains(entry.key)) return entry.value;
+    }
+    return 'استفسار عام';
+  }
+
+  /// اختيار إيموجي مناسب للاقتراح
+  String _getEmojiForSuggestion(String suggestion) {
+    final s = SmartNLP.normalize(suggestion);
+    if (s.contains('اثار') || s.contains('جانبي')) return '⚠️';
+    if (s.contains('مجاني') || s.contains('بلاش')) return '💰';
+    if (s.contains('وين') || s.contains('اين')) return '📍';
+    if (s.contains('حصبه')) return '🔴';
+    if (s.contains('شلل')) return '💧';
+    if (s.contains('مبتسر') || s.contains('خديج')) return '👶';
+    if (s.contains('اشراف')) return '🏥';
+    if (s.contains('وسيط') || s.contains('اداره')) return '📋';
+    if (s.contains('طوارئ') || s.contains('خاف') || s.contains('خطر')) return '🚨';
+    if (s.contains('حراره') || s.contains('سخون')) return '🌡️';
+    if (s.contains('جرع')) return '🔢';
+    if (s.contains('متى')) return '📅';
+    if (s.contains('عادي') || s.contains('طبيعي')) return '✅';
+    return '💡';
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -48,6 +192,70 @@ class ChatService extends ChangeNotifier {
 
   _Resp _process(String raw) {
     final norm = SmartNLP.normalize(raw);
+
+    // ═══ التحليلات العميقة أولاً — أعلى أولوية ═══
+    final deepResult = DeepAnalyticsEngine.analyzeQuery(norm);
+    if (deepResult != null) {
+      _ctx.lastTopic = deepResult.title;
+      _record('deep_analytics', norm);
+      final deepReplies = <QuickReply>[
+        const QuickReply(text: 'تقييم المخاطر', emoji: '🎯'),
+        const QuickReply(text: 'تنبؤات متقدمة', emoji: '🔮'),
+        const QuickReply(text: 'تحسين الحملات', emoji: '🚀'),
+        const QuickReply(text: 'الإحاطة التنفيذية', emoji: '📋'),
+      ];
+      if (deepResult.actionItems.isNotEmpty) {
+        return _Resp(
+          '${deepResult.detailedAnalysis}\n\n━━━━ إجراءات مطلوبة ━━━━\n${deepResult.actionItems.map((a) => "  ▶️ $a").join("\n")}',
+          deepReplies,
+        );
+      }
+      return _Resp(deepResult.detailedAnalysis, deepReplies);
+    }
+
+    // ═══ الإحاطة التنفيذية ═══
+    if (norm.contains('احاطه تنفيذ') || norm.contains('ملخص تنفيذ') || norm.contains('تقرير شامل') || norm.contains('وضع عاجل')) {
+      _ctx.lastTopic = 'الإحاطة التنفيذية';
+      _record('executive_briefing', norm);
+      return _Resp(DeepAnalyticsEngine.getExecutiveBriefing(), [
+        const QuickReply(text: 'تقييم المخاطر', emoji: '🎯'),
+        const QuickReply(text: 'تحسين الحملات', emoji: '🚀'),
+        const QuickReply(text: 'تحليل إشرافي', emoji: '🏥'),
+        const QuickReply(text: 'تنبؤات متقدمة', emoji: '🔮'),
+      ]);
+    }
+
+    // ═══ تحليل البيانات الحقيقية ═══
+    final analyticsResult = AnalyticsEngine.analyzeQuery(norm);
+    if (analyticsResult != null) {
+      _ctx.lastTopic = analyticsResult.title;
+      _record('analytics', norm);
+      return _Resp(analyticsResult.details, [
+        const QuickReply(text: 'توصيات ذكية', emoji: '💡'),
+        const QuickReply(text: 'تنبؤات 2026', emoji: '🔮'),
+        const QuickReply(text: 'تحليل الفجوات', emoji: '📊'),
+        const QuickReply(text: 'مؤشرات الأداء', emoji: '📈'),
+      ]);
+    }
+
+    // ═══ بحث في قاعدة بيانات التقارير الحقيقية ═══
+    final realDataResp = _searchRealDataKB(norm);
+    if (realDataResp != null) {
+      _ctx.lastTopic = 'بيانات التقارير';
+      _record('real_data', norm);
+      return realDataResp;
+    }
+
+    // ═══ الوضع الحالي السريع ═══
+    if (norm.contains('وضع حالي') || norm.contains('اخر احصائي') || norm.contains('احصائيات') || norm.contains('اخر ارقام')) {
+      _ctx.lastTopic = 'الوضع الحالي';
+      _record('status', norm);
+      return _Resp(AnalyticsEngine.getQuickStatus(), [
+        const QuickReply(text: 'تحليل الحملات', emoji: '📊'),
+        const QuickReply(text: 'توصيات ذكية', emoji: '💡'),
+        const QuickReply(text: 'تنبؤات 2026', emoji: '🔮'),
+      ]);
+    }
 
     // كشف الشكر
     if (SmartNLP.isThanking(norm)) {
@@ -125,6 +333,29 @@ class ChatService extends ChangeNotifier {
       case 'management': return _handleManagement(norm);
       case 'reminder': return _handleReminder(norm);
       case 'feedback': return _handleFeedback(norm);
+      // ═══ النوايا الجديدة المضافة ═══
+      case 'intermediate_management': return _handleIntermediateManagement(norm);
+      case 'supportive_supervision': return _handleSupportiveSupervision(norm);
+      case 'hmis_reporting': return _handleHMISReporting(norm);
+      case 'microplanning': return _handleMicroplanning(norm);
+      case 'outbreak_response': return _handleOutbreakResponse(norm);
+      case 'vaccine_management': return _handleVaccineManagement(norm);
+      case 'aefi_reporting': return _handleAEFIReporting(norm);
+      case 'coverage_monitoring': return _handleCoverageMonitoring(norm);
+      case 'school_immunization': return _handleSchoolImmunization(norm);
+      case 'cold_chain_management': return _handleColdChainManagement(norm);
+      case 'waste_management': return _handleWasteManagement(norm);
+      case 'session_planning': return _handleSessionPlanning(norm);
+      case 'demand_generation': return _handleDemandGeneration(norm);
+      case 'community_engagement': return _handleCommunityEngagement(norm);
+      case 'data_quality': return _handleDataQuality(norm);
+      case 'stock_management': return _handleStockManagement(norm);
+      case 'drop_out_analysis': return _handleDropOutAnalysis(norm);
+      case 'defaulter_tracing': return _handleDefaulterTracing(norm);
+      case 'open_vial_policy': return _handleOpenVialPolicy(norm);
+      case 'surveillance': return _handleSurveillance(norm);
+      case 'training': return _handleTraining(norm);
+      case 'injection_safety': return _handleInjectionSafety(norm);
       default: break;
     }
 
@@ -133,7 +364,12 @@ class ChatService extends ChangeNotifier {
     if (found != null) {
       _ctx.lastTopic = found;
       _record('general', norm);
-      return _Resp(_kb[found] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies(found));
+      // بحث في كل قواعد المعرفة
+      final content = _kb[found]
+          ?? advancedImmunizationKB[found]
+          ?? intermediateManagementKB[found]
+          ?? 'عذراً، لا تتوفر معلومات حالياً';
+      return _Resp(content, _ctxReplies(found));
     }
 
     // ═══ رد افتراضي ذكي ═══
@@ -212,14 +448,118 @@ class ChatService extends ChangeNotifier {
       return _handleChildSick(norm);
     }
 
-    // --- الأشراف الداعم ---
-    if (norm.contains('الاشراف الداعم') || norm.contains('الأشراف الداعم')) {
-      return _handleSupervision(norm);
+    // --- إشراف داعم / إشراف ---
+    if (norm.contains('الاشراف الداعم') || norm.contains('الأشراف الداعم') ||
+        norm.contains('اشراف داعم') || norm.contains('إشراف داعم') ||
+        norm.contains('إشراف') || norm.contains('اشراف')) {
+      return _handleSupportiveSupervision(norm);
     }
 
-    // --- إدارة المستوى الوسيط ---
-    if (norm.contains('المستوى الوسيط') || norm.contains('اداره المستوى') || norm.contains('ادارة المستوى')) {
-      return _handleManagement(norm);
+    // --- إدارة وسيطة / المستوى الوسيط / مدير مكتب / مدير محافظة ---
+    if (norm.contains('المستوى الوسيط') || norm.contains('اداره المستوى') || norm.contains('ادارة المستوى') ||
+        norm.contains('إداره وسيط') || norm.contains('إدارة وسيطة') || norm.contains('اداره وسيط') ||
+        norm.contains('ادارة وسيطة') || norm.contains('مدير مكتب') || norm.contains('مدير محافظه') ||
+        norm.contains('مدير محافظة') || norm.contains('المستوي الوسيط')) {
+      return _handleIntermediateManagement(norm);
+    }
+
+    // --- مؤشرات أداء / KPI ---
+    if (norm.contains('مؤشرات اداء') || norm.contains('مؤشرات الأداء') || norm.contains('مؤشرات أداء') ||
+        norm.contains('kpi') || norm.contains('مؤشرات')) {
+      return _handleIntermediateManagement(norm);
+    }
+
+    // --- DHIS2 / نظام المعلومات / نظام معلومات ---
+    if (norm.contains('dhis2') || norm.contains('نظام المعلومات') || norm.contains('نظام معلومات') ||
+        norm.contains('hmis') || norm.contains('نظام المعلومات الصحيه') || norm.contains('نظام المعلومات الصحية')) {
+      return _handleHMISReporting(norm);
+    }
+
+    // --- تخطيط دقيق / تخطيط ---
+    if (norm.contains('تخطيط دقيق') || norm.contains('ميكروبلان') || norm.contains('تخطيط') ||
+        norm.contains('خطة تشغيليه') || norm.contains('خطة تشغيلية')) {
+      return _handleMicroplanning(norm);
+    }
+
+    // --- تغطية / رصد التغطيات ---
+    if (norm.contains('رصد التغطيات') || norm.contains('تغطيه') || norm.contains('تغطية') ||
+        norm.contains('نسبه التغطيه') || norm.contains('نسبة التغطية')) {
+      return _handleCoverageMonitoring(norm);
+    }
+
+    // --- تسرب / متخلفين / انقطاع ---
+    if (norm.contains('تسرب') || norm.contains('متخلفين') || norm.contains('انقطاع') ||
+        norm.contains('نسبه التسرب') || norm.contains('نسبة التسرب') || norm.contains('فجوه') ||
+        norm.contains('dropout')) {
+      return _handleDropOutAnalysis(norm);
+    }
+
+    // --- مخزون / احتياج / طلب لقاحات ---
+    if (norm.contains('مخزون') || norm.contains('احتياج') || norm.contains('طلب لقاحات') ||
+        norm.contains('جرد') || norm.contains('رصيد') || norm.contains('نواقص')) {
+      return _handleStockManagement(norm);
+    }
+
+    // --- جلسات / تخطيط جلسات / جلسة ---
+    if (norm.contains('تخطيط جلسات') || norm.contains('جلسات') || norm.contains('جلسه') ||
+        norm.contains('جلسة تحصين') || norm.contains('جلسة')) {
+      return _handleSessionPlanning(norm);
+    }
+
+    // --- نفايات / تخلص / حناديق ---
+    if (norm.contains('نفايات') || norm.contains('تخلص') || norm.contains('حناديق') ||
+        norm.contains('صناديق امان') || norm.contains('نفايات حاده') || norm.contains('نفايات طبيه')) {
+      return _handleWasteManagement(norm);
+    }
+
+    // --- قارورة مفتوحة / سياسة القارورة ---
+    if (norm.contains('قاروره مفتوحه') || norm.contains('قارورة مفتوحة') || norm.contains('سياسه القاروره') ||
+        norm.contains('سياسة القارورة') || norm.contains('open vial') || norm.contains('قارورة')) {
+      return _handleOpenVialPolicy(norm);
+    }
+
+    // --- حملة / حملات / تطعيم وطني / NIDs ---
+    if (norm.contains('حمل') || norm.contains('nids') || norm.contains('تطعيم وطني') ||
+        norm.contains('حملات') || norm.contains('ايام تحصين') || norm.contains('أيام تحصين') ||
+        norm.contains('تكميليه') || norm.contains('تكميلية')) {
+      return _handleCampaigns();
+    }
+
+    // --- وباء / استجابة / فاشية ---
+    if (norm.contains('وباء') || norm.contains('استجابه') || norm.contains('استجابة') ||
+        norm.contains('فاشيه') || norm.contains('فاشية') || norm.contains('outbreak')) {
+      return _handleOutbreakResponse(norm);
+    }
+
+    // --- تحصين المدارس / مدرسة ---
+    if (norm.contains('تحصين المدارس') || norm.contains('مدرسه') || norm.contains('مدرسة') ||
+        norm.contains('طلاب') || norm.contains('طالبات') || norm.contains('تلاميذ') ||
+        norm.contains('فحص مدرسي')) {
+      return _handleSchoolImmunization(norm);
+    }
+
+    // --- ترصد / رصد وبائي ---
+    if (norm.contains('ترصد') || norm.contains('رصد وبائي') || norm.contains('رصد') ||
+        norm.contains('surveillance') || norm.contains('مراقبه وبائيه') || norm.contains('مراقبة وبائية')) {
+      return _handleSurveillance(norm);
+    }
+
+    // --- سلامة الحقن / حقن آمن ---
+    if (norm.contains('سلامه الحقن') || norm.contains('سلامة الحقن') || norm.contains('حقن آمن') ||
+        norm.contains('حقن امن') || norm.contains('injection safety') || norm.contains('سلامه ابر')) {
+      return _handleInjectionSafety(norm);
+    }
+
+    // --- تعزيز الطلب / طلب / توعية ---
+    if (norm.contains('تعزيز الطلب') || norm.contains('توعيه') || norm.contains('توعية') ||
+        norm.contains('تسويق اجتماعي') || norm.contains('رسائل صحيه') || norm.contains('رسائل صحية')) {
+      return _handleDemandGeneration(norm);
+    }
+
+    // --- مشاركة مجتمعية / مجتمع ---
+    if (norm.contains('مشاركه مجتمعيه') || norm.contains('مشاركة مجتمعية') || norm.contains('مجتمع') ||
+        norm.contains('قاده مجتمعيين') || norm.contains('قادة مجتمعيين') || norm.contains('مجتمع محلي')) {
+      return _handleCommunityEngagement(norm);
     }
 
     // --- الأمراض ---
@@ -474,7 +814,7 @@ class ChatService extends ChangeNotifier {
   }
 
   // ══════════════════════════════════════════════════════════════
-  //  المعالجات المتقدمة
+  //  المعالجات المتقدمة — الموجودة سابقاً
   // ══════════════════════════════════════════════════════════════
 
   _Resp _handleAge(String n) {
@@ -502,7 +842,6 @@ class ChatService extends ChangeNotifier {
 
       if (_ctx.child.isPremature) buf.writeln('👶 طفل مبتسر — يُعطى حسب العمر الزمني');
 
-      // التطعيمات المتأخرة أولاً (أهم)
       if (overdue.isNotEmpty) {
         buf.writeln('\n⚠️ تطعيمات متأخرة (أعطها فوراً!):');
         for (final v in overdue) {
@@ -510,7 +849,6 @@ class ChatService extends ChangeNotifier {
         }
       }
 
-      // التطعيمات التي يجب أن تكون معطاة
       final completed = due.where((v) => !overdue.contains(v)).toList();
       if (completed.isNotEmpty) {
         buf.writeln('\n✅ تطعيمات يجب أن تكون مُعطاة:');
@@ -533,7 +871,6 @@ class ChatService extends ChangeNotifier {
       if (m >= 8 && m <= 10) buf.writeln('\n⏰ تطعيم الحصبة (MR) قرب! لا تفوته في عمر 9 أشهر.');
       if (m >= 16 && m <= 19) buf.writeln('\n⏰ الجرعة الثانية من MR في عمر 18 شهر — لا تفوتها!');
 
-      // نصائح ذكية
       if (overdue.isNotEmpty) {
         buf.writeln('\n🚨 ⚡ مهم: عندك ${overdue.length} تطعيمات متأخرة! روح المركز الصحي اليوم!');
       }
@@ -581,7 +918,6 @@ class ChatService extends ChangeNotifier {
   }
 
   _Resp _handleFollowUp(String n) {
-    // إجابات إيجابية
     if (RegExp(r'^(نعم|ايوه|ايه|اي|يب|ايه نعم|اوك|اوكي|ياب|أي نعم|أيوه|ايه اي)').hasMatch(n)) {
       if (_ctx.lastTopic.isNotEmpty && _kb.containsKey(_ctx.lastTopic)) {
         return _Resp(_kb[_ctx.lastTopic] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies(_ctx.lastTopic));
@@ -589,21 +925,17 @@ class ChatService extends ChangeNotifier {
       return _Resp('تمام! ✅ اسألني أي تفاصيل إضافية.', _welcomeReplies());
     }
 
-    // إجابات سلبية
     if (RegExp(r'^(لا|ما ابي|مو|ما يبي|ما ابغي|ما ابي اعطيه|لالا|لا شكرا)').hasMatch(n)) {
       return _Resp('👍 تمام! إذا احتجت شيء ثاني أنا هنا.', _welcomeReplies());
     }
 
-    // طلب شرح أو تفصيل
     if (RegExp(r'اشرح|وضح|بالتفصيل|تفاصيل|شرح لي|زود|فهمني اكثر|فهمني|زيدني|عطيني تفاصيل|اكثر').hasMatch(n)) {
       if (_ctx.lastTopic.isNotEmpty && _kb.containsKey(_ctx.lastTopic)) {
         return _Resp(_kb[_ctx.lastTopic] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies(_ctx.lastTopic));
       }
-      // إذا مافي سياق، عرض المواضيع
       return _Resp('📚 وش تبي أشرح لك بالتفصيل؟ اختر من المواضيع:', _welcomeReplies());
     }
 
-    // موافقة
     if (RegExp(r'^(طيب|تمام|زين|اوكي|اوك|تمام شكرا|كذا خلاص|شكرا|thanks|فاهمت|فهمت|واضح)').hasMatch(n)) {
       if (_ctx.lastTopic.isNotEmpty) {
         return _Resp('💡 تمام! تبي تعرف أكثر عن "${_ctx.lastTopic}"؟ أو عندك سؤال ثاني؟', _welcomeReplies());
@@ -611,7 +943,6 @@ class ChatService extends ChangeNotifier {
       return _Resp('🌟 تمام! أي سؤال ثاني أنا موجود!', _welcomeReplies());
     }
 
-    // أسئلة "كم"
     if (n.startsWith('كم')) {
       return _Resp('📊 تحب تعرف كم جرعة؟ ولا كم عمر يبدأ فيه التطعيم؟', [
         const QuickReply(text: 'كم جرعة؟', emoji: '🔢'),
@@ -620,7 +951,6 @@ class ChatService extends ChangeNotifier {
       ]);
     }
 
-    // "ليش" / "ليه" / "لماذا"
     if (RegExp(r'^ليه|^ليش|^لماذا|^ليهذا|^لي ذا').hasMatch(n)) {
       if (_ctx.lastTopic.isNotEmpty && _kb.containsKey(_ctx.lastTopic)) {
         return _Resp(_kb[_ctx.lastTopic] ?? 'عذراً', _ctxReplies(_ctx.lastTopic));
@@ -628,7 +958,6 @@ class ChatService extends ChangeNotifier {
       return _Resp('🤔 ليش إيش بالضبط؟ اشرح لي أكثر وأجاوبك!', _welcomeReplies());
     }
 
-    // "وش" / "ايش" في سياق
     if (RegExp(r'^وش|^ايش|^ماذا|^ايش').hasMatch(n)) {
       if (_ctx.lastTopic.isNotEmpty) {
         final topicReplies = _ctxReplies(_ctx.lastTopic);
@@ -636,7 +965,6 @@ class ChatService extends ChangeNotifier {
       }
     }
 
-    // سؤال عن "متى"
     if (RegExp(r'^متى').hasMatch(n)) {
       if (_ctx.lastTopic.contains('تطعيم') || _ctx.lastTopic.contains('لقاح') || _ctx.lastTopic.contains('عمر')) {
         return _Resp(_kb['متى أطعم'] ?? '', _ctxReplies('vaccine_list'));
@@ -644,17 +972,15 @@ class ChatService extends ChangeNotifier {
       return _Resp('🤔 متى إيش بالضبط؟ متى التطعيم؟ ولا متى أخاف؟', _welcomeReplies());
     }
 
-    // سؤال عن "وين" / "اين"
     if (RegExp(r'^وين|^اين|^فين|^أين').hasMatch(n)) {
       return _handleLocation();
     }
 
-    // وش / ايش standalone
     if (RegExp(r'^وش |^ايش |^ما هو|^ما هي').hasMatch(n)) {
       return _handleVaccineTypes(n);
     }
 
-    return _Resp('🤔 ممكن توضح أكثر وش تقصد بالضبط؟\n\n💡 أنا أقدر أساعدك في:\n• تطعيمات طفلك حسب عمره\n• الآثار الجانبية\n• أمراض ووقاية\n• حالات خاصة\n• الأشراف الداعم', _welcomeReplies());
+    return _Resp('🤔 ممكن توضح أكثر وش تقصد بالضبط؟\n\n💡 أنا أقدر أساعدك في:\n• تطعيمات طفلك حسب عمره\n• الآثار الجانبية\n• أمراض ووقاية\n• حالات خاصة\n• الأشراف الداعم\n• الإدارة الوسيطة والتخطيط', _welcomeReplies());
   }
 
   _Resp _handleChildSick(String n) {
@@ -714,7 +1040,6 @@ class ChatService extends ChangeNotifier {
       );
     }
 
-    // حرارة بدون رقم
     if (n.contains('حراره') || n.contains('سخون') || n.contains('يسخن') || n.contains('حمى') || n.contains('سخنت')) {
       _ctx.lastTopic = 'حرارة بعد التطعيم';
       return _Resp(
@@ -735,7 +1060,6 @@ class ChatService extends ChangeNotifier {
       return _Resp(_kb['بكاء مستمر بعد التطعيم'] ?? '💡 البكاء بعد التطعيم طبيعي. حضنه واطمنه.', _ctxReplies('side_effects'));
     }
 
-    // أعراض عامة بدون تطعيم محدد
     if (n.contains('اعراض') || n.contains('جانبيه') || n.contains('وش يصير') || n.contains('ايش يصير')) {
       _ctx.lastTopic = 'آثار جانبية';
       return _Resp(_kb['آثار جانبية'] ?? '', _ctxReplies('side_effects'));
@@ -776,7 +1100,6 @@ class ChatService extends ChangeNotifier {
   }
 
   _Resp _handleEmergency(String n) {
-    // كشف حالة طوارئ مباشرة
     if (RegExp(r'تشنج|نوبه|يرتعش|يسكر|ما يتنفس|ما يرد|اختنق|فقد وعي|شحوب شديد|يموت').hasMatch(n)) {
       return _Resp(
         '🚨 ⚡️ حالة طوارئ!\n\n'
@@ -789,14 +1112,13 @@ class ChatService extends ChangeNotifier {
         [const QuickReply(text: 'وش أسوي بعد كذا؟', emoji: '🚨'), const QuickReply(text: 'كيف أحميه من الحرارة؟', emoji: '🌡️')],
       );
     }
-    
-    // كشف حرارة عالية
+
     final temp = SmartNLP.extractTemperature(n);
     if (temp != null && temp >= 39) {
       return _Resp(
         '🚨 حرارة طفلك ${temp}° عالية! ⚠️\n\n'
         '📋 افعل هذا فوراً:\n'
-        '1. كمادات ماء دافئ على الجبه\n'
+        '1. كمادات ماء دافئ على الجبهة\n'
         '2. أزع عنه الملابس الزائدة\n'
         '3. أعطه بارادول حسب وزنه\n'
         '4. هوّن المراوح\n'
@@ -919,11 +1241,8 @@ class ChatService extends ChangeNotifier {
   }
 
   _Resp _handleScheduleQuery(String n) {
-    // إذا فيه عمر محدد
     final age = SmartNLP.extractAge(n);
     if (age != null) return _handleAge(n);
-
-    // جدول كامل
     return _handleVaccineList();
   }
 
@@ -949,7 +1268,6 @@ class ChatService extends ChangeNotifier {
     return _Resp(_kb['كم جرعة'] ?? '📊 كم جرعة أي تطعيم بالضبط؟', _ctxReplies('dose'));
   }
 
-  /// خريطة تطابق IDs العامة مع IDs التطعيمات
   static final Map<String, List<String>> _vaccineIdMapping = {
     'bcg': ['bcg'],
     'opv': ['opv0', 'opv1', 'opv2', 'opv3', 'opv4', 'opv5'],
@@ -1051,18 +1369,12 @@ class ChatService extends ChangeNotifier {
 
   _Resp _handleSupervision(String n) {
     _ctx.lastTopic = 'الأشراف الداعم';
-    return _Resp(
-      _kb['الأشراف الداعم للتحصين'] ?? _kb['الأشراف الداعم'] ?? 'عذراً',
-      [const QuickReply(text: 'إدارة المستوى الوسيط', emoji: '🏢'), const QuickReply(text: 'مؤشرات الأداء', emoji: '📊'), const QuickReply(text: 'سلسلة التبريد', emoji: '❄️')],
-    );
+    return _handleSupportiveSupervision(n);
   }
 
   _Resp _handleManagement(String n) {
     _ctx.lastTopic = 'إدارة المستوى الوسيط';
-    return _Resp(
-      _kb['إدارة المستوى الوسيط'] ?? 'عذراً',
-      [const QuickReply(text: 'الأشراف الداعم', emoji: '🔍'), const QuickReply(text: 'تغطية التطعيم', emoji: '📊'), const QuickReply(text: 'حملات التحصين', emoji: '🚐')],
-    );
+    return _handleIntermediateManagement(n);
   }
 
   _Resp _handleReminder(String n) {
@@ -1115,13 +1427,596 @@ class ChatService extends ChangeNotifier {
     }
 
     return _Resp(
-      '$g$contextHint\n\n💡 اسألني عن أي شيء:\n• تطعيمات طفلك\n• الآثار الجانبية\n• أمراض ووقاية\n• حالات خاصة\n• الأشراف الداعم',
+      '$g$contextHint\n\n💡 اسألني عن أي شيء:\n• تطعيمات طفلك\n• الآثار الجانبية\n• أمراض ووقاية\n• حالات خاصة\n• الأشراف الداعم\n• الإدارة الوسيطة والتخطيط',
       _welcomeReplies(),
     );
   }
 
+  // ══════════════════════════════════════════════════════════════
+  //  المعالجات المتقدمة — الجديدة المضافة
+  // ══════════════════════════════════════════════════════════════
+
+  _Resp _handleIntermediateManagement(String n) {
+    _ctx.lastTopic = 'إدارة المستوى الوسيط';
+
+    // عناوين فرعية
+    if (n.contains('مؤشرات') || n.contains('اداء') || n.contains('kpi')) {
+      _ctx.lastTopic = 'مؤشرات الأداء';
+      return _Resp(
+        _kb['مؤشرات الأداء'] ?? '📊 مؤشرات الأداء الرئيسية (KPIs):\n\n'
+        '📌 مؤشرات التغطية:\n'
+        '• نسبة التغطية بالتطعيمات الروتينية\n'
+        '• نسبة تغطية DTP3 (مؤشر عالمي)\n'
+        '• نسبة تغطية MCV1 و MCV2\n\n'
+        '📌 مؤشرات الجودة:\n'
+        '• نسبة التسرب (Dropout rate)\n'
+        '• نسبة إبلاغ AEFI\n'
+        '• جودة البيانات في DHIS2\n\n'
+        '📌 مؤشرات اللوجستيات:\n'
+        '• نسبة نفاد المخزون\n'
+        '• سلامة سلسلة التبريد\n\n'
+        '💡 استخدم DHIS2 لمتابعة المؤشرات!',
+        [const QuickReply(text: 'DHIS2', emoji: '📊'), const QuickReply(text: 'تغطية', emoji: '📈'), const QuickReply(text: 'تسرب', emoji: '📉')],
+      );
+    }
+
+    if (n.contains('مدير مكتب') || n.contains('مدير محافظه') || n.contains('مدير محافظة')) {
+      _ctx.lastTopic = 'دور مدير المكتب';
+      return _Resp(
+        _kb['دور مدير المكتب'] ?? '🏢 دور مدير مكتب الصحة بالمحافظة:\n\n'
+        '1️⃣ التخطيط والتنسيق:\n'
+        '   • إعداد الخطة التشغيلية السنوية\n'
+        '   • تنسيق الأنشطة بين المديريات\n'
+        '   • توزيع الموارد البشرية والمالية\n\n'
+        '2️⃣ المتابعة والتقييم:\n'
+        '   • مراجعة بيانات HMIS/DHIS2\n'
+        '   • تحليل مؤشرات الأداء شهرياً\n'
+        '   • متابعة التغطيات والتسرب\n\n'
+        '3️⃣ الإشراف الداعم:\n'
+        '   • توجيه الزيارات الإشرافية\n'
+        '   • متابعة تنفيذ التوصيات\n'
+        '   • تدريب العاملين الصحيين\n\n'
+        '4️⃣ إدارة المخزون:\n'
+        '   • ضمان توفر اللقاحات\n'
+        '   • مراقبة سلسلة التبريد\n'
+        '   • تنظيم طلبات اللقاحات\n\n'
+        '5️⃣ التواصل والتنسيق:\n'
+        '   • مع الشركاء الصحين\n'
+        '   • مع المجتمع المحلي\n'
+        '   • مع وزارة الصحة',
+        [const QuickReply(text: 'مؤشرات الأداء', emoji: '📊'), const QuickReply(text: 'إشراف داعم', emoji: '🔍'), const QuickReply(text: 'تخطيط دقيق', emoji: '📋')],
+      );
+    }
+
+    return _Resp(
+      _kb['إدارة المستوى الوسيط'] ?? '🏢 إدارة المستوى الوسيط في التحصين:\n\n'
+      '📌 التعريف:\n'
+      'المستوى الوسيط هو مكتب الصحة بالمحافظة، ويلعب دور المحور بين المستوى المركزي والمديريات.\n\n'
+      '📋 المهام الأساسية:\n'
+      '1. التخطيط الدقيق (Microplanning)\n'
+      '2. الإشراف الداعم على المديريات\n'
+      '3. متابعة مؤشرات الأداء\n'
+      '4. إدارة المخزون واللوجستيات\n'
+      '5. رفع التقارير عبر HMIS/DHIS2\n'
+      '6. التنسيق مع الشركاء\n'
+      '7. تدريب وبناء قدرات العاملين\n'
+      '8. تنظيم حملات التحصين التكميلية\n\n'
+      '💡 مدير المكتب هو المحرك الرئيسي لبرنامج التحصين!',
+      [const QuickReply(text: 'مؤشرات الأداء', emoji: '📊'), const QuickReply(text: 'إشراف داعم', emoji: '🔍'), const QuickReply(text: 'تخطيط دقيق', emoji: '📋'),
+       const QuickReply(text: 'DHIS2', emoji: '💻'), const QuickReply(text: 'سلسلة التبريد', emoji: '❄️')],
+    );
+  }
+
+  _Resp _handleSupportiveSupervision(String n) {
+    _ctx.lastTopic = 'الأشراف الداعم';
+
+    if (n.contains('زياره') || n.contains('زيارة') || n.contains('checklist')) {
+      _ctx.lastTopic = 'الزيارة الإشرافية';
+      return _Resp(
+        _kb['الزيارة الإشرافية'] ?? '📋 الزيارة الإشرافية الداعمة:\n\n'
+        '📌 قبل الزيارة:\n'
+        '• مراجعة بيانات DHIS2 للمرفق\n'
+        '• مراجعة توصيات الزيارة السابقة\n'
+        '• تحديد أولويات الزيارة\n\n'
+        '📌 أثناء الزيارة:\n'
+        '• مراجعة سجلات التحصين\n'
+        '• فحص سلسلة التبريد\n'
+        '• مراقبة جلسة تحصين\n'
+        '• مقابلة العاملين الصحيين\n'
+        '• التحقق من جودة البيانات\n\n'
+        '📌 بعد الزيارة:\n'
+        '• كتابة التقرير والتوصيات\n'
+        '• متابعة تنفيذ التوصيات\n'
+        '• تحديد موعد الزيارة القادمة',
+        [const QuickReply(text: 'إدارة المستوى الوسيط', emoji: '🏢'), const QuickReply(text: 'جودة البيانات', emoji: '📊')],
+      );
+    }
+
+    return _Resp(
+      _kb['الأشراف الداعم للتحصين'] ?? _kb['الأشراف الداعم'] ?? '🔍 الإشراف الداعم للتحصين:\n\n'
+      '📌 التعريف:\n'
+      'عملية منظمة لتقييم وتحسين أداء خدمات التحصين من خلال الزيارات الميدانية والتغذية الراجعة.\n\n'
+      '📋 المكونات الأساسية:\n'
+      '1️⃣ التقييم: مراجعة الأداء والعمليات\n'
+      '2️⃣ التغذية الراجعة: نقاط القوة والضعف\n'
+      '3️⃣ حل المشكلات: العمل مع الفريق لإيجاد حلول\n'
+      '4️⃣ التدريب أثناء العمل (OJT)\n'
+      '5️⃣ المتابعة: التأكد من تنفيذ التوصيات\n\n'
+      '📌 مجالات الإشراف:\n'
+      '• سجلات التحصين والتغطيات\n'
+      '• سلسلة التبريد وتخزين اللقاحات\n'
+      '• سلامة الحقن والتخلص من النفايات\n'
+      '• جودة البيانات والإبلاغ\n'
+      '• جلسات التحصين وتخطيطها\n'
+      '• التواصل المجتمعي\n\n'
+      '💡 الإشراف الداعم = إشراف + تدريب + دعم!',
+      [const QuickReply(text: 'إدارة المستوى الوسيط', emoji: '🏢'), const QuickReply(text: 'مؤشرات الأداء', emoji: '📊'), const QuickReply(text: 'سلسلة التبريد', emoji: '❄️'),
+       const QuickReply(text: 'جودة البيانات', emoji: '📈'), const QuickReply(text: 'تدريب', emoji: '🎓')],
+    );
+  }
+
+  _Resp _handleHMISReporting(String n) {
+    _ctx.lastTopic = 'HMIS/DHIS2';
+    return _Resp(
+      _kb['HMIS/DHIS2'] ?? '📊 نظام المعلومات الصحية (HMIS/DHIS2):\n\n'
+      '📌 التعريف:\n'
+      'DHIS2 هو نظام معلومات صحي رقمي يستخدم لجمع وتحليل بيانات التحصين.\n\n'
+      '📋 البيانات المسجلة:\n'
+      '• أعداد المطعمين حسب اللقاح والعمر\n'
+      '• أعداد المستهدفين\n'
+      '• بيانات المخزون\n'
+      '• بيانات سلسلة التبريد\n'
+      '• حالات AEFI\n\n'
+      '📌 التقارير الأساسية:\n'
+      '• التغطيات الشهرية\n'
+      '• نسب التسرب\n'
+      '• مؤشرات الأداء\n'
+      '• خريطة التغطيات الجغرافية\n\n'
+      '💡 DHIS2 يساعد في اتخاذ القرارات المبنية على الأدلة!',
+      [const QuickReply(text: 'مؤشرات الأداء', emoji: '📊'), const QuickReply(text: 'تغطية', emoji: '📈'), const QuickReply(text: 'جودة البيانات', emoji: '✅')],
+    );
+  }
+
+  _Resp _handleMicroplanning(String n) {
+    _ctx.lastTopic = 'التخطيط الدقيق';
+    return _Resp(
+      _kb['التخطيط الدقيق'] ?? '📋 التخطيط الدقيق (Microplanning):\n\n'
+      '📌 التعريف:\n'
+      'عملية تخطيط مفصلة على مستوى المديرية لضمان وصول خدمات التحصين لكل المجتمعات.\n\n'
+      '📋 المكونات:\n'
+      '1️⃣ حصر المجتمعات المستهدفة\n'
+      '2️⃣ تحديد مواقع الجلسات\n'
+      '3️⃣ جدولة الجلسات (زمانياً ومكانياً)\n'
+      '4️⃣ تقدير الاحتياج من اللقاحات\n'
+      '5️⃣ تخصيص الموارد البشرية\n'
+      '6️⃣ خطة النقل واللوجستيات\n\n'
+      '📌 أنواع الجلسات:\n'
+      '• ثابتة: في المرفق الصحي\n'
+      '• متنقلة: في المجتمعات البعيدة\n'
+      '• خارج المرفق: في الأسواق والمدارس\n\n'
+      '💡 التخطيط الدقيق يضمن عدم إهمال أي مجتمع!',
+      [const QuickReply(text: 'تخطيط جلسات', emoji: '📅'), const QuickReply(text: 'مخزون', emoji: '📦'), const QuickReply(text: 'إدارة المستوى الوسيط', emoji: '🏢')],
+    );
+  }
+
+  _Resp _handleOutbreakResponse(String n) {
+    _ctx.lastTopic = 'الاستجابة للأوبئة';
+    return _Resp(
+      _kb['الاستجابة للأوبئة'] ?? '🦠 الاستجابة للأوبئة والفاشيات:\n\n'
+      '📌 خطوات الاستجابة:\n'
+      '1️⃣ التأكد من التشخيص والإبلاغ\n'
+      '2️⃣ تحديد حجم الفاشية ونطاقها\n'
+      '3️⃣ تفعيل فريق الاستجابة السريعة\n'
+      '4️⃣ حملة تحصين استجابية\n'
+      '5️⃣ تعزيز الرصد الوبائي\n'
+      '6️⃣ التوعية المجتمعية\n\n'
+      '📌 الأمراض المستهدفة:\n'
+      '• الحصبة • شلل الأطفال\n'
+      '• الكزاز الوليدي • الدفتيريا\n'
+      '• السعال الديكي\n\n'
+      '⚠️ الفاشية تتطلب استجابة سريعة خلال 72 ساعة!',
+      [const QuickReply(text: 'ترصد وبائي', emoji: '🔬'), const QuickReply(text: 'حملات', emoji: '🚐'), const QuickReply(text: 'توعية', emoji: '📢')],
+    );
+  }
+
+  _Resp _handleVaccineManagement(String n) {
+    _ctx.lastTopic = 'إدارة اللقاحات';
+    return _Resp(
+      _kb['إدارة اللقاحات'] ?? '💉 إدارة اللقاحات:\n\n'
+      '📌 المحاور الأساسية:\n'
+      '1️⃣ الطلب والتوريد\n'
+      '2️⃣ الاستلام والتخزين\n'
+      '3️⃣ التوزيع على المديريات\n'
+      '4️⃣ مراقبة المخزون\n'
+      '5️⃣ إدارة النفايات والهدر\n\n'
+      '💡 قاعدة: تطلب حسب الاستهلاك + احتياطي أمان',
+      [const QuickReply(text: 'مخزون', emoji: '📦'), const QuickReply(text: 'سلسلة التبريد', emoji: '❄️'), const QuickReply(text: 'سياسة القارورة المفتوحة', emoji: '💊')],
+    );
+  }
+
+  _Resp _handleAEFIReporting(String n) {
+    _ctx.lastTopic = 'إبلاغ AEFI';
+    return _Resp(
+      _kb['إبلاغ AEFI'] ?? _kb['AEFI'] ?? '📊 الإبلاغ عن الآثار الجانبية (AEFI):\n\n'
+      '📌 متى تُبلغ؟\n'
+      '• أي حدث خطير بعد التطعيم\n'
+      '• وفيات بعد التطعيم\n'
+      '• حالات الحساسية الشديدة\n'
+      '• التشنجات\n'
+      '• أحداث تجميعية (أكثر من حالة)\n\n'
+      '📋 كيف تُبلغ؟\n'
+      '1. املأ استمارة AEFI\n'
+      '2. أبلغ المركز الصحي فوراً\n'
+      '3. أبلغ مديرية الصحة خلال 24 ساعة\n'
+      '4. أرفع للتقصي الوطني\n\n'
+      '⏰ الإبلاغ السريع ينقذ الأرواح!',
+      [const QuickReply(text: 'آثار جانبية', emoji: '⚠️'), const QuickReply(text: 'طوارئ', emoji: '🚨'), const QuickReply(text: 'سلامة الحقن', emoji: '💉')],
+    );
+  }
+
+  _Resp _handleCoverageMonitoring(String n) {
+    _ctx.lastTopic = 'رصد التغطيات';
+    return _Resp(
+      _kb['رصد التغطيات'] ?? '📈 رصد تغطيات التحصين:\n\n'
+      '📌 المؤشرات الأساسية:\n'
+      '• تغطية BCG (الهدف ≥ 90%)\n'
+      '• تغطية DTP3 (مؤشر عالمي، الهدف ≥ 90%)\n'
+      '• تغطية MCV1 و MCV2 (الهدف ≥ 95%)\n'
+      '• تغطية OPV3 + IPV\n'
+      '• تغطية الروتا 2\n'
+      '• تغطية PCV3\n\n'
+      '📋 مصادر البيانات:\n'
+      '• تقارير HMIS/DHIS2 الشهرية\n'
+      '• مسوحات التغطيات\n'
+      '• مراجعة السجلات\n\n'
+      '💡 رصد التغطيات أسبوعياً يكشف الفجوات مبكراً!',
+      [const QuickReply(text: 'تسرب', emoji: '📉'), const QuickReply(text: 'DHIS2', emoji: '💻'), const QuickReply(text: 'مؤشرات الأداء', emoji: '📊')],
+    );
+  }
+
+  _Resp _handleSchoolImmunization(String n) {
+    _ctx.lastTopic = 'تحصين المدارس';
+    return _Resp(
+      _kb['تحصين المدارس'] ?? '🏫 تحصين المدارس:\n\n'
+      '📌 التطعيمات المدرسية:\n'
+      '• DTP جرعة معززة (عمر 6 سنوات)\n'
+      '• MR جرعة معززة (عمر 6 سنوات)\n'
+      '• فيتامين أ (200,000 وحدة دولية)\n'
+      '• Td للبنات (عمر 12 سنة)\n\n'
+      '📋 خطوات التنفيذ:\n'
+      '1. تنسيق مع إدارة التربية والتعليم\n'
+      '2. إعلام أولياء الأمور\n'
+      '3. تسجيل بيانات الطلاب\n'
+      '4. إعطاء التطعيمات\n'
+      '5. إبلاغ عن أي AEFI\n'
+      '6. إدخال البيانات في DHIS2\n\n'
+      '💡 التحصين المدرسي يكمل المناعة ويحمي المجتمع!',
+      [const QuickReply(text: 'فيتامين أ', emoji: '🌟'), const QuickReply(text: 'آثار جانبية', emoji: '⚠️'), const QuickReply(text: 'تغطية', emoji: '📈')],
+    );
+  }
+
+  _Resp _handleColdChainManagement(String n) {
+    _ctx.lastTopic = 'إدارة سلسلة التبريد';
+    return _Resp(
+      _kb['إدارة سلسلة التبريد'] ?? '❄️ إدارة سلسلة التبريد:\n\n'
+      '📌 العناصر الأساسية:\n'
+      '1️⃣ ثلاجات التحصين (TZA/HZA/CZA)\n'
+      '2️⃣ صناديق النقل المبردة\n'
+      '3️⃣ حافظات اللقاح (Vaccine carriers)\n'
+      '4️⃣ أكياس الثلج المبردة\n'
+      '5️⃣ أجهزة مراقبة الحرارة\n'
+      '6️⃣ مؤشرات VVM\n\n'
+      '📋 درجات الحرارة:\n'
+      '• اللقاحات: +2° إلى +8° مئوية\n'
+      '• لا تجمد! التجميد يفسد اللقاح\n\n'
+      '⚠️ مراقبة الحرارة مرتين يومياً!',
+      [const QuickReply(text: 'VVM', emoji: '🔍'), const QuickReply(text: 'مخزون', emoji: '📦'), const QuickReply(text: 'إشراف داعم', emoji: '🔍')],
+    );
+  }
+
+  _Resp _handleWasteManagement(String n) {
+    _ctx.lastTopic = 'إدارة النفايات';
+    return _Resp(
+      _kb['إدارة النفايات'] ?? '🗑️ إدارة النفايات الحيوية:\n\n'
+      '📌 أنواع النفايات:\n'
+      '• محاقن مستعملة\n'
+      '• إبر مستعملة\n'
+      '• قوارير لقاح فارغة\n'
+      '• قطن وصوف ملوث\n\n'
+      '📋 التخلص الآمن:\n'
+      '1. التخلص الفوري في حناديق الأمان\n'
+      '2. لا تملأ حناديق الأمان أكثر من 3/4\n'
+      '3. لا تعيد تغطية الإبر يدوياً\n'
+      '4. الحرق أو الدفن في مواقع مخصصة\n\n'
+      '⚠️ النفايات الحيوية خطر على الصحة العامة!',
+      [const QuickReply(text: 'سلامة الحقن', emoji: '💉'), const QuickReply(text: 'المحاقن', emoji: '💉'), const QuickReply(text: 'إشراف داعم', emoji: '🔍')],
+    );
+  }
+
+  _Resp _handleSessionPlanning(String n) {
+    _ctx.lastTopic = 'تخطيط الجلسات';
+    return _Resp(
+      _kb['تخطيط الجلسات'] ?? '📅 تخطيط جلسات التحصين:\n\n'
+      '📌 أنواع الجلسات:\n'
+      '• ثابتة: في المرفق الصحي (يومية)\n'
+      '• متنقلة: في المجتمعات البعيدة (أسبوعية/شهرية)\n'
+      '• خارج المرفق: أسواق، مدارس، مساجد\n\n'
+      '📋 عناصر التخطيط:\n'
+      '1. تحديد المستهدفين\n'
+      '2. تقدير الاحتياج من اللقاحات\n'
+      '3. توفير المستلزمات\n'
+      '4. جدولة الموعد والوقت\n'
+      '5. إعلام المجتمع مسبقاً\n'
+      '6. تسجيل البيانات\n\n'
+      '💡 جلسة مخططة جيداً = تغطية أعلى!',
+      [const QuickReply(text: 'تخطيط دقيق', emoji: '📋'), const QuickReply(text: 'مخزون', emoji: '📦'), const QuickReply(text: 'تعزيز الطلب', emoji: '📢')],
+    );
+  }
+
+  _Resp _handleDemandGeneration(String n) {
+    _ctx.lastTopic = 'تعزيز الطلب';
+    return _Resp(
+      _kb['تعزيز الطلب'] ?? '📢 تعزيز الطلب على التحصين:\n\n'
+      '📌 الاستراتيجيات:\n'
+      '1️⃣ التسويق الاجتماعي\n'
+      '2️⃣ المشاركة المجتمعية\n'
+      '3️⃣ رسائل صحية عبر وسائل الإعلام\n'
+      '4️⃣ قادة المجتمع كسفراء\n'
+      '5️⃣ زيارات منزلية\n'
+      '6️⃣ رسائل نصية تذكيرية\n\n'
+      '📋 الرسائل الأساسية:\n'
+      '• التحصين آمن ومجاني\n'
+      '• يحمي طفلك من أمراض خطيرة\n'
+      '• لا تؤخر تطعيمات طفلك\n'
+      '• أكمل جميع الجرعات\n\n'
+      '💡 التوعية المستمرة تزيد التغطيات!',
+      [const QuickReply(text: 'مشاركة مجتمعية', emoji: '👥'), const QuickReply(text: 'تسرب', emoji: '📉'), const QuickReply(text: 'تغطية', emoji: '📈')],
+    );
+  }
+
+  _Resp _handleCommunityEngagement(String n) {
+    _ctx.lastTopic = 'المشاركة المجتمعية';
+    return _Resp(
+      _kb['المشاركة المجتمعية'] ?? '👥 المشاركة المجتمعية في التحصين:\n\n'
+      '📌 المبادئ:\n'
+      '• إشراك المجتمع في التخطيط\n'
+      '• الاستماع لاحتياجاتهم\n'
+      '• بناء الثقة\n'
+      '• العمل مع القادة المحليين\n\n'
+      '📋 الأدوار:\n'
+      '• القادة الدينيون: نشر الوعي\n'
+      '• المعلمات: متابعة الأطفال\n'
+      '• المتطوعون: زيارات منزلية\n'
+      '• الأئمة: ذكر أهمية التحصين\n\n'
+      '💡 المجتمع المشارك = تغطيات أعلى!',
+      [const QuickReply(text: 'تعزيز الطلب', emoji: '📢'), const QuickReply(text: 'توعية', emoji: '📣'), const QuickReply(text: 'تخطيط دقيق', emoji: '📋')],
+    );
+  }
+
+  _Resp _handleDataQuality(String n) {
+    _ctx.lastTopic = 'جودة البيانات';
+    return _Resp(
+      _kb['جودة البيانات'] ?? '✅ جودة البيانات في التحصين:\n\n'
+      '📌 أبعاد الجودة:\n'
+      '1️⃣ الدقة: البيانات صحيحة\n'
+      '2️⃣ الاكتمال: لا بيانات ناقصة\n'
+      '3️⃣ التوقيت: إبلاغ في الوقت\n'
+      '4️⃣ الاتساق: بيانات متوافقة\n\n'
+      '📋 أدوات التحسين:\n'
+      '• مراجعة البيانات قبل الإرسال\n'
+      '• التحقق من التناسق\n'
+      '• تدريب العاملين على التسجيل\n'
+      '• الاستخدام المنتظم لـ DHIS2\n\n'
+      '💡 بيانات جيدة = قرارات صحيحة!',
+      [const QuickReply(text: 'DHIS2', emoji: '💻'), const QuickReply(text: 'مؤشرات الأداء', emoji: '📊'), const QuickReply(text: 'إشراف داعم', emoji: '🔍')],
+    );
+  }
+
+  _Resp _handleStockManagement(String n) {
+    _ctx.lastTopic = 'إدارة المخزون';
+    return _Resp(
+      _kb['إدارة المخزون'] ?? '📦 إدارة مخزون اللقاحات:\n\n'
+      '📌 المبادئ:\n'
+      '• الطلب حسب الاستهلاك الفعلي\n'
+      '• احتياطي أمان: شهر واحد\n'
+      '• جرد دوري شهري\n'
+      '• FIFO: الأول وارد أول صادر\n\n'
+      '📋 نقاط المراقبة:\n'
+      '• أرصدة اللقاحات\n'
+      '• تواريخ الصلاحية\n'
+      '• نسبة الهدر\n'
+      '• حالات النفاد\n\n'
+      '⚠️ النفاد = أطفال بدون تطعيم!',
+      [const QuickReply(text: 'سلسلة التبريد', emoji: '❄️'), const QuickReply(text: 'سياسة القارورة المفتوحة', emoji: '💊'), const QuickReply(text: 'تخطيط جلسات', emoji: '📅')],
+    );
+  }
+
+  _Resp _handleDropOutAnalysis(String n) {
+    _ctx.lastTopic = 'تحليل التسرب';
+    return _Resp(
+      _kb['تحليل التسرب'] ?? '📉 تحليل التسرب في التحصين:\n\n'
+      '📌 التعريف:\n'
+      'التسرب = الفرق بين من بدأ التطعيم ومن أتمه.\n\n'
+      '📋 مؤشرات التسرب:\n'
+      '• DTP1-DTP3: مؤشر تسرب عالمي\n'
+      '• BCG-Measles: مؤشر شامل\n'
+      '• MCV1-MCV2: تسرب جرعة الحصبة\n\n'
+      '📌 أسباب التسرب:\n'
+      '• بعد المسافة\n'
+      '• نقص الوعي\n'
+      '• الآثار الجانبية\n'
+      '• نقص اللقاحات\n'
+      '• التواريخ المفقودة\n\n'
+      '💡 تتبع المتخلفين يقلل التسرب!',
+      [const QuickReply(text: 'تتبع المتخلفين', emoji: '🔍'), const QuickReply(text: 'تغطية', emoji: '📈'), const QuickReply(text: 'تعزيز الطلب', emoji: '📢')],
+    );
+  }
+
+  _Resp _handleDefaulterTracing(String n) {
+    _ctx.lastTopic = 'تتبع المتخلفين';
+    return _Resp(
+      _kb['تتبع المتخلفين'] ?? '🔍 تتبع المتخلفين عن التحصين:\n\n'
+      '📌 الخطوات:\n'
+      '1️⃣ تحديد المتخلفين من السجلات\n'
+      '2️⃣ إعداد قائمة بالأسماء\n'
+      '3️⃣ زيارات منزلية أو اتصال هاتفي\n'
+      '4️⃣ توعية أولياء الأمور\n'
+      '5️⃣ إعطاء التطعيمات المتأخرة\n'
+      '6️⃣ تحديث السجلات\n\n'
+      '💡 المتخلفون = فجوة في المناعة المجتمعية!',
+      [const QuickReply(text: 'تسرب', emoji: '📉'), const QuickReply(text: 'تغطية', emoji: '📈'), const QuickReply(text: 'تعزيز الطلب', emoji: '📢')],
+    );
+  }
+
+  _Resp _handleOpenVialPolicy(String n) {
+    _ctx.lastTopic = 'سياسة القارورة المفتوحة';
+    return _Resp(
+      _kb['سياسة القارورة المفتوحة'] ?? '💊 سياسة القارورة المفتوحة (Open Vial Policy):\n\n'
+      '📌 اللقاحات التي يجوز إعادة استخدام القارورة المفتوحة:\n'
+      '• OPV • IPV • PCV\n'
+      '• Pentavalent • HepB • Rota\n\n'
+      '📋 الشروط:\n'
+      '1. القارورة لها VVM في المرحلة 1 أو 2\n'
+      '2. لم يتجاوز الوقت المحدد (28 يوماً)\n'
+      '3. محفوظة في درجة الحرارة الصحيحة\n'
+      '4. لم يتلوث المحتوى\n\n'
+      '🚫 لا يجوز إعادة استخدام:\n'
+      '• BCG (لا VVM)\n'
+      '• MR (لا VVM)\n'
+      '• أي قارورة مشكوك في سلامتها\n\n'
+      '💡 السياسة تقلل الهدر وتوفر اللقاحات!',
+      [const QuickReply(text: 'VVM', emoji: '🔍'), const QuickReply(text: 'مخزون', emoji: '📦'), const QuickReply(text: 'سلسلة التبريد', emoji: '❄️')],
+    );
+  }
+
+  _Resp _handleSurveillance(String n) {
+    _ctx.lastTopic = 'الرصد الوبائي';
+    return _Resp(
+      _kb['الرصد الوبائي'] ?? '🔬 الرصد الوبائي في التحصين:\n\n'
+      '📌 الأهداف:\n'
+      '• كشف الأمراض المستهدفة مبكراً\n'
+      '• مراقبة أنماط الأمراض\n'
+      '• توجيه الاستجابة للأوبئة\n\n'
+      '📋 الأمراض المرصودة:\n'
+      '• شلل الأطفال (AFP)\n'
+      '• الحصبة والحصبة الألمانية\n'
+      '• الكزاز الوليدي\n'
+      '• الدفتيريا\n'
+      '• السعال الديكي\n\n'
+      '📌 آليات الرصد:\n'
+      '• رصد سلبي (المرضى يأتون للمرفق)\n'
+      '• رصد نشط (زيارات ميدانية)\n'
+      '• رصد مجتمعي (متطوعون)\n\n'
+      '💡 الرصد المبكر يمنع الأوبئة!',
+      [const QuickReply(text: 'استجابة للأوبئة', emoji: '🦠'), const QuickReply(text: 'DHIS2', emoji: '💻'), const QuickReply(text: 'إشراف داعم', emoji: '🔍')],
+    );
+  }
+
+  _Resp _handleTraining(String n) {
+    _ctx.lastTopic = 'التدريب';
+    return _Resp(
+      _kb['التدريب'] ?? '🎓 التدريب وبناء القدرات:\n\n'
+      '📌 أنواع التدريب:\n'
+      '1️⃣ تدريب أولي: للعاملين الجدد\n'
+      '2️⃣ تدريب تنشيطي: سنوي\n'
+      '3️⃣ تدريب أثناء العمل (OJT): خلال الزيارات الإشرافية\n'
+      '4️⃣ تدريب متخصص: حملات، AEFI، سلسلة التبريد\n\n'
+      '📋 المحاور:\n'
+      '• مهارات التحصين\n'
+      '• سلامة الحقن\n'
+      '• إدارة سلسلة التبريد\n'
+      '• التواصل المجتمعي\n'
+      '• تسجيل البيانات\n\n'
+      '💡 التدريب المستمر = أداء أفضل!',
+      [const QuickReply(text: 'إشراف داعم', emoji: '🔍'), const QuickReply(text: 'سلامة الحقن', emoji: '💉'), const QuickReply(text: 'جودة البيانات', emoji: '📊')],
+    );
+  }
+
+  _Resp _handleInjectionSafety(String n) {
+    _ctx.lastTopic = 'سلامة الحقن';
+    return _Resp(
+      _kb['سلامة الحقن'] ?? '💉 سلامة الحقن:\n\n'
+      '📌 المبادئ الأساسية:\n'
+      '1️⃣ استخدام محاقن ذاتية التلف (ADS)\n'
+      '2️⃣ عدم إعادة تغطية الإبر\n'
+      '3️⃣ التخلص الفوري في حناديق الأمان\n'
+      '4️⃣ عدم لمس الإبرة بعد الاستخدام\n\n'
+      '📋 أنواع المحاقن:\n'
+      '• ADS 0.05ml: BCG (داخل الأدمة)\n'
+      '• ADS 0.5ml: معظم التطعيمات\n\n'
+      '⚠️ المحاقن العادية ممنوعة في التحصين!\n\n'
+      '💡 سلامة الحقن = حماية الطفل والعامل!',
+      [const QuickReply(text: 'نفايات', emoji: '🗑️'), const QuickReply(text: 'المحاقن', emoji: '💉'), const QuickReply(text: 'إشراف داعم', emoji: '🔍')],
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  //  المعالجة الافتراضية
+  // ══════════════════════════════════════════════════════════════
+
+  /// بحث في قاعدة بيانات التقارير الحقيقية
+  _Resp? _searchRealDataKB(String n) {
+    // كلمات مفتاحية للبحث في بيانات التقارير
+    final dataKeywords = [
+      'حمله شلل', 'حملات شلل', 'تغطيه شلل', 'تغطية شلل',
+      'ملخص حملات', 'احصائيات شلل', 'ارقام شلل',
+      'افضل محافظه', 'اقوى محافظه', 'اضعف محافظه', 'محافظه تغطيه',
+      'نشاط ايصال', 'ايصالي', 'جلسات', 'معدل جلسه',
+      'تغطيه روتيني', 'تغطية روتين', 'خماسي تغطي', 'حصبه تغطي',
+      'فجوه', 'فجوة', 'تسرب', 'drop',
+      'kpi', 'مؤشرات اداء', 'مؤشرات',
+      'تنب', 'توقع', '2026', '2025',
+      'تعز', 'الحديده', 'المكلا', 'عدن', 'لحج', 'شبوه',
+      'الضالع', 'المهره', 'مارب', 'ابين', 'حجه', 'البيضاء', 'الجوف',
+      'سقطري', 'سيئون', 'حضرموت',
+      'مقارنه', 'قارن', 'فرق بين',
+      'محافظات متدنيه', 'محافظات ضعيفه', 'محافظات تحتاج',
+      'توص', 'نصيح', 'اقتراح',
+      'بيانات حقيقي', 'تقارير', 'ارقام رسمي',
+    ];
+
+    bool hasDataKeyword = false;
+    for (final kw in dataKeywords) {
+      if (n.contains(kw)) {
+        hasDataKeyword = true;
+        break;
+      }
+    }
+
+    if (!hasDataKeyword) return null;
+
+    // البحث في قاعدة المعرفة الحقيقية
+    for (final entry in realDataKnowledgeBase.entries) {
+      final keyNorm = SmartNLP.normalize(entry.key);
+      // تطابق مباشر مع المفتاح
+      for (final word in n.split(' ')) {
+        if (word.length > 3 && keyNorm.contains(word)) {
+          return _Resp(entry.value, [
+            const QuickReply(text: 'توصيات ذكية', emoji: '💡'),
+            const QuickReply(text: 'تنبؤات 2026', emoji: '🔮'),
+            const QuickReply(text: 'تحليل الفجوات', emoji: '📊'),
+          ]);
+        }
+      }
+      // تطابق مع المحتوى
+      final valNorm = SmartNLP.normalize(entry.value);
+      int matchCount = 0;
+      for (final word in n.split(' ')) {
+        if (word.length > 3 && valNorm.contains(word)) matchCount++;
+      }
+      if (matchCount >= 2) {
+        return _Resp(entry.value, [
+          const QuickReply(text: 'توصيات ذكية', emoji: '💡'),
+          const QuickReply(text: 'تنبؤات 2026', emoji: '🔮'),
+          const QuickReply(text: 'تحليل الفجوات', emoji: '📊'),
+        ]);
+      }
+    }
+
+    return null;
+  }
+
   _Resp _handleDefault(String n) {
-    // محاولة استخراج حرارة
     final temp = SmartNLP.extractTemperature(n);
     if (temp != null && temp > 38.5) {
       _ctx.child.mentionedSymptoms.add('حرارة');
@@ -1132,21 +2027,17 @@ class ChatService extends ChangeNotifier {
       );
     }
 
-    // محاولة استخراج عمر
     final age = SmartNLP.extractAge(n);
     if (age != null) return _handleAge(n);
 
-    // محاولة أخيرة — بحث بالكلمات الجزئية والمرادفات
     final words = n.split(' ').where((w) => w.length > 2).toList();
     for (final word in words) {
       for (final key in _kb.keys) {
         final kn = SmartNLP.normalize(key);
-        // تطابق مباشر
         if (kn.contains(word) && word.length > 3) {
           _ctx.lastTopic = key;
           return _Resp(_kb[key] ?? '', _ctxReplies(key));
         }
-        // تطبيق المرادفات
         final syns = SmartNLP.synonyms[word];
         if (syns != null) {
           for (final syn in syns) {
@@ -1158,7 +2049,6 @@ class ChatService extends ChangeNotifier {
             }
           }
         }
-        // بحث في القيم أيضاً
         for (final key in _kb.keys) {
           final val = SmartNLP.normalize(_kb[key] ?? '');
           if (val.contains(word) && word.length > 4) {
@@ -1169,7 +2059,6 @@ class ChatService extends ChangeNotifier {
       }
     }
 
-    // رد ذكي حسب سياق المحادثة
     if (_ctx.turnCount <= 1) {
       return _Resp(
         '🤖 أهلاً! أنا مستشار التحصين الذكي 🇾🇪\n\n'
@@ -1179,13 +2068,13 @@ class ChatService extends ChangeNotifier {
         '• "وش الآثار الجانبية للخماسي؟"\n'
         '• "هل التطعيم يسبب أوتيزم؟"\n'
         '• "ولدي حرارته 39 وش أسوي؟"\n'
-        '• "وش الأشراف الداعم؟"\n\n'
+        '• "وش الإشراف الداعم؟"\n'
+        '• "وش إدارة المستوى الوسيط؟"\n\n'
         'أو اختر من الاقتراحات 👇',
         _welcomeReplies(),
       );
     }
 
-    // إذا عندنا اسم الطفل، نذكره في الرد
     if (_ctx.child.name != null && n.length < 15) {
       return _Resp(
         '💡 ${_ctx.child.name} - أنا هنا أساعدك!\n\n'
@@ -1201,7 +2090,7 @@ class ChatService extends ChangeNotifier {
       return _Resp(
         '🤔 مش فاهم قصدك بالضبط. تبي تعرف أكثر عن "${_ctx.lastTopic}"؟\n\n'
         '💡 أو جرب تسأل بطريقة ثانية — أنا هنا أساعدك!\n\n'
-        '📌 ممكن أجاوب على:\n• تطعيمات طفلك حسب عمره\n• الآثار الجانبية\n• أمراض ووقاية\n• حالات خاصة\n• الأشراف الداعم',
+        '📌 ممكن أجاوب على:\n• تطعيمات طفلك حسب عمره\n• الآثار الجانبية\n• أمراض ووقاية\n• حالات خاصة\n• الأشراف الداعم\n• الإدارة الوسيطة والتخطيط',
         _welcomeReplies(),
       );
     }
@@ -1213,7 +2102,9 @@ class ChatService extends ChangeNotifier {
       '• "وش الآثار للخماسي؟"\n'
       '• "هل يسبب أوتيزم؟"\n'
       '• "ولدي حرارته 39 وش أسوي؟"\n'
-      '• "الأشراف الداعم للتحصين"\n\n'
+      '• "الأشراف الداعم للتحصين"\n'
+      '• "إدارة المستوى الوسيط"\n'
+      '• "تخطيط دقيق"\n\n'
       'أو اختر من الاقتراحات 👇',
       _welcomeReplies(),
     );
@@ -1223,16 +2114,14 @@ class ChatService extends ChangeNotifier {
   //  أدوات مساعدة
   // ══════════════════════════════════════════════════════════════
 
-  Map<String, String> get _kb => unifiedKnowledgeBase;
+  Map<String, String> get _kb => fullKnowledgeBase;
 
   String? _searchExt(String n) {
-    // أولاً: بحث مباشر في خريطة الكلمات المفتاحية الموسّعة
     for (final e in extendedKeywordMap.entries) {
       for (final kw in e.value) {
         if (n.contains(kw.toLowerCase()) && _kb.containsKey(e.key)) return e.key;
       }
     }
-    // ثانياً: بحث في الاقتراحات السريعة
     for (final e in quickRepliesByTopic.entries) {
       if (e.key == 'default') continue;
       for (final reply in e.value) {
@@ -1254,10 +2143,8 @@ class ChatService extends ChangeNotifier {
     double best = 0; String? bestKey;
     for (final key in _kb.keys) {
       final kn = SmartNLP.normalize(key);
-      // تطابق مباشر
       if (n.contains(kn) || kn.contains(n)) return key;
 
-      // تطابق بالكلمات المفتاحية
       final keyKw = SmartNLP.extractKeywords(kn);
       int directHits = 0;
       for (final kw in keyKw) {
@@ -1270,33 +2157,65 @@ class ChatService extends ChangeNotifier {
         if (directScore > best) { best = directScore; bestKey = key; }
       }
 
-      // تطابق بالمرادفات
       final score = SmartNLP.calculateRelevance(n, keyKw);
       if (score > best) { best = score; bestKey = key; }
     }
     return best > 0.15 ? bestKey : null;
   }
 
-  /// بحث ذكي شامل — يجمع كل الطرق
+  /// بحث ذكي شامل — يستخدم fuzzyFind وتجميعات المواضيع
   String? _smartSearch(String n) {
+    // 0. بحث في قواعد المعرفة المتقدمة والإدارية أولاً
+    final advancedResult = _searchAdvancedKB(n);
+    if (advancedResult != null) return advancedResult;
+
     // 1. بحث في الكلمات المفتاحية الموسّعة
     final ext = _searchExt(n);
     if (ext != null) return ext;
 
-    // 2. بحث ضبابي في قاعدة المعرفة
-    final kb = _searchKB(n);
-    if (kb != null) return kb;
+    // 2. بحث ضبابي في مفاتيح قاعدة المعرفة باستخدام fuzzyFind
+    final kbKeys = _kb.keys.toList();
+    final fuzzyKey = SmartNLP.fuzzyFind(n, kbKeys, threshold: 0.72);
+    if (fuzzyKey != null) return fuzzyKey;
 
-    // 3. بحث بالكلمات الفردية
+    // 3. بحث ضبابي جزئي بالكلمات باستخدام fuzzyFindAll
+    final fuzzyAll = SmartNLP.fuzzyFindAll(n, kbKeys, threshold: 0.75);
+    if (fuzzyAll.isNotEmpty) return fuzzyAll.first;
+
+    // 4. بحث باستخدام تجميعات المواضيع (topic clusters)
     final words = n.split(' ').where((w) => w.length > 2).toList();
     for (final word in words) {
-      for (final key in _kb.keys) {
-        final kn = SmartNLP.normalize(key);
-        if (kn.contains(word) && word.length > 3) return key;
+      final clusterMatch = SmartNLP.topicClusters[word];
+      if (clusterMatch != null) {
+        for (final related in clusterMatch) {
+          final rn = SmartNLP.normalize(related);
+          for (final key in _kb.keys) {
+            final kn = SmartNLP.normalize(key);
+            if (kn.contains(rn) || rn.contains(kn)) return key;
+          }
+        }
+      }
+      // توسيع باستخدام تجميعات المواضيع
+      for (final cluster in SmartNLP.topicClusters.entries) {
+        final cn = SmartNLP.normalize(cluster.key);
+        if (cn == word || cluster.value.any((v) => SmartNLP.normalize(v) == word)) {
+          final expanded = SmartNLP.expandWithClusters([word]);
+          for (final term in expanded) {
+            final tn = SmartNLP.normalize(term);
+            for (final key in _kb.keys) {
+              final kn = SmartNLP.normalize(key);
+              if (kn.contains(tn) && tn.length > 2) return key;
+            }
+          }
+        }
       }
     }
 
-    // 4. بحث عكسي
+    // 5. بحث في قاعدة المعرفة بالكلمات الفردية
+    final kbResult = _searchKB(n);
+    if (kbResult != null) return kbResult;
+
+    // 6. بحث عكسي
     for (final key in _kb.keys) {
       final kn = SmartNLP.normalize(key);
       final keyWords = kn.split(' ');
@@ -1308,6 +2227,50 @@ class ChatService extends ChangeNotifier {
     return null;
   }
 
+  /// بحث في قواعد المعرفة المتقدمة والإدارية
+  String? _searchAdvancedKB(String n) {
+    final combinedAdvanced = <String, String>{
+      ...advancedImmunizationKB,
+      ...intermediateManagementKB,
+    };
+
+    double bestScore = 0.0;
+    String? bestKey;
+
+    for (final entry in combinedAdvanced.entries) {
+      double score = 0.0;
+      final keyNorm = SmartNLP.normalize(entry.key);
+      final valueNorm = SmartNLP.normalize(entry.value);
+
+      // تطابق مع المفتاح
+      if (n.contains(keyNorm) || keyNorm.contains(n)) {
+        score += 3.0;
+      }
+
+      // تطابق كلمات
+      final nWords = n.split(' ').where((w) => w.length > 2).toList();
+      final kWords = keyNorm.split(' ').where((w) => w.length > 2).toList();
+
+      for (final nw in nWords) {
+        for (final kw in kWords) {
+          if (nw == kw) score += 2.0;
+          if (nw.contains(kw) || kw.contains(nw)) score += 1.0;
+        }
+      }
+
+      // تطابق ضبابي
+      final fuzzy = SmartNLP.fuzzyFind(n, combinedAdvanced.keys.toList(), threshold: 0.65);
+      if (fuzzy != null && fuzzy == entry.key) score += 1.5;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestKey = entry.key;
+      }
+    }
+
+    return bestScore >= 1.5 ? bestKey : null;
+  }
+
   void _record(String intent, String msg) {
     _ctx.recordTurn(msg, '', intent);
   }
@@ -1317,7 +2280,7 @@ class ChatService extends ChangeNotifier {
     QuickReply(text: 'هل مجاني؟', emoji: '💰'), QuickReply(text: 'الفرق OPV و IPV؟', emoji: '🔵'),
     QuickReply(text: 'هل يسبب أوتيزم؟', emoji: '🚫'), QuickReply(text: 'ولدي مريض', emoji: '🤒'),
     QuickReply(text: 'الأشراف الداعم', emoji: '🔍'), QuickReply(text: 'إدارة المستوى الوسيط', emoji: '🏢'),
-    QuickReply(text: 'الأمراض', emoji: '🦠'), QuickReply(text: 'التغذية', emoji: '🍼'),
+    QuickReply(text: 'تخطيط دقيق', emoji: '📋'), QuickReply(text: 'تحصين المدارس', emoji: '🏫'),
   ];
 
   List<QuickReply> _ctxReplies(String topic) {
