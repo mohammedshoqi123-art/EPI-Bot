@@ -107,8 +107,8 @@ class _SpecializedChatScreenState extends State<SpecializedChatScreen> {
   }
 
   Widget _buildChatArea() {
-    return ListenableBuilder(
-      listenable: widget.chatService,
+    return AnimatedBuilder(
+      animation: widget.chatService,
       builder: (context, _) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
