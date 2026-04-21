@@ -115,7 +115,7 @@ class SmartNLP {
     if (n.contains('يومين')) return (weeks: 0, months: 0, days: 2);
     if (n.contains('سنتين')) return (weeks: 0, months: 24, days: 0);
     if (n.contains('سنين')) return (weeks: 0, months: 36, days: 0);
-    if (n.contains('شهر واحد') || n.contains('شهر واحد')) return (weeks: 0, months: 1, days: 0);
+    if (n.contains('شهر واحد')) return (weeks: 0, months: 1, days: 0);
     if (n.contains('اسبوع واحد')) return (weeks: 1, months: 0, days: 0);
     if (n.contains('يوم واحد')) return (weeks: 0, months: 0, days: 1);
 
@@ -187,7 +187,7 @@ class SmartNLP {
     'بعد', 'قبل', 'بين', 'هذا', 'هذه', 'ذلك', 'انا', 'انت', 'هو', 'هي', 'نحن',
     'كان', 'يكون', 'اذا', 'لو', 'اريد', 'ابي', 'نبي', 'ودي',
     'طفلي', 'طفله', 'ولدي', 'بنتي', 'يعني', 'صح', 'طيب', 'تمام', 'زين', 'ايش', 'وش',
-    'الي', 'اللي', 'لدي', 'عندما', 'حاب', 'بدي', 'عند', 'صار', 'يوم',
+    'الي', 'اللي', 'لدي', 'عندما', 'حاب', 'بدي', 'صار', 'يوم',
   };
 
   static List<String> extractKeywords(String normalized) {

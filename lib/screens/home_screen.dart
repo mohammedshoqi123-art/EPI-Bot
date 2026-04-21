@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../constants/app_theme.dart';
 import 'chat_screen.dart';
 import 'schedule_screen.dart';
