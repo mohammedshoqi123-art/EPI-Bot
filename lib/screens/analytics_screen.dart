@@ -46,23 +46,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF2E86AB), Color(0xFF3498DB)],
-            ),
-          ),
-        ),
-        title: const Text('📊 تحليل بيانات النظام'),
-      ),
-      body: Column(
-        children: [
-          _buildTabBar(),
-          Expanded(child: _buildContent()),
-        ],
-      ),
+    return Column(
+      children: [
+        _buildTabBar(),
+        Expanded(child: _buildContent()),
+      ],
     );
   }
 
