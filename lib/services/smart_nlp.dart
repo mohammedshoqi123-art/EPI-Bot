@@ -9,8 +9,10 @@ class IntentResult {
   final String intent;
   final double confidence;
   final Map<String, double> allScores;
+  final String? emotion;
+  final Map<String, dynamic>? medicalContext;
 
-  const IntentResult(this.intent, this.confidence, {this.allScores = const {}});
+  const IntentResult(this.intent, this.confidence, {this.allScores = const {}, this.emotion, this.medicalContext});
 
   @override
   String toString() => 'IntentResult($intent, ${(confidence * 100).toStringAsFixed(1)}%)';
@@ -143,9 +145,7 @@ class SmartNLP {
   static final Map<String, String> _typos = {
     // ─── أسماء لقاحات ───
     'خماسى': 'خماسي',
-    'خماسي': 'خماسي',
     'خمسائي': 'خماسي',
-    'خماسي': 'خماسي',
     'بتافالنت': 'خماسي',
     'بنتافالانت': 'خماسي',
     'حصبه': 'حصبة',
@@ -184,7 +184,6 @@ class SmartNLP {
     'اوتيزم': 'توحد',
     'اوتزم': 'توحد',
     'اتيزم': 'توحد',
-    'توحد': 'توحد',
     'توحد': 'توحد',
     'فيتمين': 'فيتامين',
     'فيتامين ا': 'فيتامين أ',
@@ -457,8 +456,8 @@ class SmartNLP {
     'اعطني', 'عطني', 'هات', 'كل', 'جذي', 'ذي', 'هال', 'سالفه', 'قصة', 'منو',
     'وينه', 'وشنو', 'شنو', 'كيفش', 'ليشش', 'اوف',
     // كلمات إيقاف إضافية (v5)
-    'بس', 'لاكن', 'لاكن', 'وبس', 'مثلا', 'ليش كذا', 'كيف يعني', 'المهم',
-    'بصراحه', 'والله', 'ياخي', 'ياخ', 'ياخي', 'شوف', 'شوفي',
+    'بس', 'لاكن', 'وبس', 'مثلا', 'ليش كذا', 'كيف يعني', 'المهم',
+    'بصراحه', 'والله', 'ياخي', 'ياخ', 'شوف', 'شوفي',
   };
 
   static List<String> extractKeywords(String normalized) {
@@ -1684,12 +1683,11 @@ class SmartNLP {
       result.confidence,
       allScores: {
         ...result.allScores,
-        'emotion': emotion,
-        if (medicalContext.containsKey('vaccine')) 'vaccine': medicalContext['vaccine'].toString(),
-        if (medicalContext.containsKey('disease')) 'disease': medicalContext['disease'].toString(),
-        if (medicalContext.containsKey('temperature')) 'temperature': medicalContext['temperature'].toString(),
-        if (medicalContext.containsKey('severity')) 'severity': medicalContext['severity'].toString(),
+        // ملاحظة: emotion و medical context تُضاف كبيانات منفصلة
+        // لأن allScores من نوع Map<String, double> ولا يقبل String
       },
+      emotion: emotion,
+      medicalContext: medicalContext,
     );
   }
 

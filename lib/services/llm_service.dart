@@ -12,10 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'knowledge_base.dart';
 import 'smart_nlp.dart';
 import 'real_data_kb.dart';
-import 'analytics_engine.dart';
 import 'advanced_immunization_kb.dart';
 import 'intermediate_management_kb.dart';
-import 'deep_analytics_engine.dart';
 
 /// حالة اتصال AI
 enum AIIStatus {

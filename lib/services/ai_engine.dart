@@ -246,7 +246,7 @@ class SentimentAnalyzer {
     return null;
   }
 
-  static const Map<String, double> _getPatternsForType(SentimentType type) {
+  static Map<String, double> _getPatternsForType(SentimentType type) {
     switch (type) {
       case SentimentType.worry: return _worryPatterns;
       case SentimentType.confusion: return _confusionPatterns;
@@ -640,7 +640,7 @@ class IntelligentIntentDetector {
     'premature': {
       'مبتسر': 1.0, 'خديج': 1.0, 'مولود مبكر': 1.0,
       'قبل الاوان': 0.9, 'premature': 0.9, 'preterm': 0.9,
-      'خديج': 1.0, 'حضانه': 0.7,
+      'حضانه': 0.7,
     },
 
     'chronic_disease': {

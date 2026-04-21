@@ -5,10 +5,7 @@
 //  يعمل محلياً + يرسل السياق للLLM عند الاتصال
 // ══════════════════════════════════════════════════════════════════════════
 
-import 'dart:math';
 import 'real_data_kb.dart';
-import 'advanced_immunization_kb.dart';
-import 'intermediate_management_kb.dart';
 
 /// نوع التحليل العميق
 enum DeepAnalysisType {

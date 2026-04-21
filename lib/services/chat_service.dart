@@ -11,7 +11,6 @@ import 'analytics_engine.dart';
 import 'advanced_immunization_kb.dart';
 import 'intermediate_management_kb.dart';
 import 'deep_analytics_engine.dart';
-import 'supervision_module.dart';
 
 class ChatService extends ChangeNotifier {
   final List<ChatMessage> _messages = [];
@@ -2117,10 +2116,9 @@ class ChatService extends ChangeNotifier {
   Map<String, String> get _kb => fullKnowledgeBase;
 
   String? _searchExt(String n) {
-    for (final e in extendedKeywordMap.entries) {
-      for (final kw in e.value) {
-        if (n.contains(kw.toLowerCase()) && _kb.containsKey(e.key)) return e.key;
-      }
+    // بحث في اختصارات قاعدة المعرفة (abbreviations)
+    for (final e in abbreviations.entries) {
+      if (n.contains(e.key.toLowerCase()) && _kb.containsKey(e.value)) return e.value;
     }
     for (final e in quickRepliesByTopic.entries) {
       if (e.key == 'default') continue;

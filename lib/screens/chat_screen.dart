@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../constants/app_theme.dart';
 import '../models/vaccine_model.dart';
 import '../services/chat_service.dart';
-import '../services/llm_service.dart';
+
 import '../screens/ai_settings_screen.dart';
 import '../widgets/chat_widgets.dart';
 
@@ -108,16 +108,16 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: chatService.isAIEnabled ? Colors.greenAccent : Colors.orangeAccent,
+                        color: context.watch<ChatService>().isAIEnabled ? Colors.greenAccent : Colors.orangeAccent,
                         shape: BoxShape.circle,
                       ),
                     ).animate(onPlay: (c) => c.repeat()).fadeIn(duration: 800.ms).then().fadeOut(duration: 800.ms),
                     const SizedBox(width: 6),
                     Text(
-                      chatService.isAIEnabled ? 'متصل • AI مفعّل 🧠' : 'متصل • بدون AI',
+                      context.watch<ChatService>().isAIEnabled ? 'متصل • AI مفعّل 🧠' : 'متصل • بدون AI',
                       style: TextStyle(
                         fontSize: 11,
-                        color: chatService.isAIEnabled ? Colors.greenAccent : Colors.orangeAccent,
+                        color: context.watch<ChatService>().isAIEnabled ? Colors.greenAccent : Colors.orangeAccent,
                       ),
                     ),
                   ],
