@@ -2,7 +2,7 @@
 class AppConstants {
   // معلومات التطبيق
   static const String appName = 'مستشار التحصين';
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '2.0.0';
   static const String appDescription = 'مستشار برنامج التحصين الصحي الموسع باليمن';
 
   // معلومات البرنامج

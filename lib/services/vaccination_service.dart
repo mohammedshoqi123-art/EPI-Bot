@@ -483,19 +483,44 @@ class VaccinationService extends ChangeNotifier {
     }).toList();
   }
 
-  // ──── جدول التطعيم الكامل ────────────
+  // ──── جدول التطعيم الكامل (مُحدّث حسب الدليل الرسمي أغسطس 2025) ────────────
   Map<String, List<Vaccine>> getFullSchedule() {
     return {
       'عند الولادة': allVaccines.where((v) => v.dueWeeks == 0).toList(),
-      '6 أشهر': allVaccines.where((v) => v.dueMonths == 6).toList(),
+      '6 أشهر (فيتامين أ)': allVaccines.where((v) => v.dueMonths == 6).toList(),
       '6 أسابيع': allVaccines.where((v) => v.dueWeeks == 6).toList(),
       '10 أسابيع': allVaccines.where((v) => v.dueWeeks == 10).toList(),
       '14 أسبوع': allVaccines.where((v) => v.dueWeeks == 14).toList(),
       '9 أشهر': allVaccines.where((v) => v.dueMonths == 9).toList(),
-      '12 شهر': allVaccines.where((v) => v.dueMonths == 12).toList(),
+      '12 شهر (فيتامين أ)': allVaccines.where((v) => v.dueMonths == 12).toList(),
       '18 شهر': allVaccines.where((v) => v.dueMonths == 18).toList(),
-      '6 سنوات': allVaccines.where((v) => v.dueMonths == 72).toList(),
-      '12 سنة': allVaccines.where((v) => v.dueMonths == 144).toList(),
+      '6 سنوات (دخول المدرسة)': allVaccines.where((v) => v.dueMonths == 72).toList(),
+      '12 سنة (للبنات)': allVaccines.where((v) => v.dueMonths == 144).toList(),
     };
+  }
+
+  // ──── التطعيمات المتأخرة (overdue) ────────────
+  List<Vaccine> getOverdueVaccinesDetailed(int weeks, int months, List<String> givenIds) {
+    return allVaccines.where((v) {
+      if (givenIds.contains(v.id)) return false;
+      if (v.dueMonths > 0) return months >= v.dueMonths + 2; // أكثر من شهرين تأخير
+      return weeks >= v.dueWeeks + 4; // أكثر من 4 أسابيع تأخير
+    }).toList();
+  }
+
+  // ──── التطعيمات المكتملة ────────────
+  List<Vaccine> getCompletedVaccines(int weeks, int months, List<String> givenIds) {
+    return allVaccines.where((v) {
+      if (!givenIds.contains(v.id)) return false;
+      return true;
+    }).toList();
+  }
+
+  // ──── نسبة الإنجاز ────────────
+  double getCompletionPercentage(int weeks, int months, List<String> givenIds) {
+    final due = getVaccinesDueAtAge(weeks, months);
+    if (due.isEmpty) return 1.0;
+    final completed = due.where((v) => givenIds.contains(v.id)).length;
+    return completed / due.length;
   }
 }

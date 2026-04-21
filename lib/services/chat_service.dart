@@ -108,6 +108,8 @@ class ChatService extends ChangeNotifier {
       case 'child_sick': return _handleChildSick(norm);
       case 'supervision': return _handleSupervision(norm);
       case 'management': return _handleManagement(norm);
+      case 'reminder': return _handleReminder(norm);
+      case 'feedback': return _handleFeedback(norm);
       default: break;
     }
 
@@ -476,6 +478,41 @@ class ChatService extends ChangeNotifier {
     return _Resp(
       _kb['إدارة المستوى الوسيط'] ?? 'عذراً، لا تتوفر معلومات حالياً',
       [const QuickReply(text: 'الأشراف الداعم', emoji: '🔍'), const QuickReply(text: 'تغطية التطعيم', emoji: '📊'), const QuickReply(text: 'حملات التحصين', emoji: '🚐')],
+    );
+  }
+
+  _Resp _handleReminder(String n) {
+    if (_ctx.child.hasBasicInfo) {
+      final m = _ctx.child.ageMonths!;
+      final upcoming = VaccinationService().getUpcomingVaccines(_ctx.child.ageWeeks ?? 0, m);
+      if (upcoming.isNotEmpty) {
+        final buf = StringBuffer('⏰ تذكير بالتطعيمات القادمة لطفلك (${_ctx.child.ageDisplay}):\n\n');
+        for (final v in upcoming) {
+          buf.writeln('📋 ${v.iconEmoji} ${v.nameAr} — ${v.doseNumber}');
+        }
+        buf.writeln('\n💡 اذهب للمركز الصحي الأقرب في الموعد المحدد!');
+        return _Resp(buf.toString(), [const QuickReply(text: 'وين أطعم؟', emoji: '📍'), const QuickReply(text: 'هل مجاني؟', emoji: '💰')]);
+      }
+      return _Resp('✅ لا توجد تطعيمات قريبة لطفلك في العمر الحالي (${_ctx.child.ageDisplay}). كل شيء مكتمل!', _welcomeReplies());
+    }
+    return _Resp('📅 عشان أذكّرك بالتطعيمات، قولي عمر طفلك أولاً.', [
+      const QuickReply(text: 'عمره 3 شهور', emoji: '📅'), const QuickReply(text: 'عمره 6 أشهر', emoji: '📅'), const QuickReply(text: 'عمره 9 شهور', emoji: '📅'),
+    ]);
+  }
+
+  _Resp _handleFeedback(String n) {
+    if (RegExp(r'ممتاز|كويس|حلو|good|رائع|جميل|helpful|مفيد').hasMatch(n)) {
+      return _Resp(
+        '🙏 شكراً لك! سعيد إني قدرت أساعدك.\n\n'
+        '💡 لا تنسَ تطعيمات طفلك في موعدها!\n'
+        '🇾🇪 صحة أطفالنا أولويتنا 💉',
+        _welcomeReplies(),
+      );
+    }
+    return _Resp(
+      '📝 أعتذر إذا كان في شيء ما عجبك.\n\n'
+      '💡 هدفي إني أكون أفضل — تقدر تكلمني عن أي استفسار وأحاول أجاوبك بشكل أفضل.',
+      _welcomeReplies(),
     );
   }
 
