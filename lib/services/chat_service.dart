@@ -54,6 +54,11 @@ class ChatService extends ChangeNotifier {
     _ctx.extractEntities(norm);
     _ctx.updatePhase(intent);
 
+    // ═══ معالجة التحية ═══
+    if (intent == 'greeting') {
+      return _handleGreeting(norm);
+    }
+
     // ═══ هل يحتاج توضيح؟ ═══
     final clar = _ctx.needsClarification(norm, intent);
     if (clar.needs) {
@@ -103,11 +108,11 @@ class ChatService extends ChangeNotifier {
 
     // ═══ بحث في القاموس الموسع ═══
     final ext = _searchExt(norm);
-    if (ext != null) { _ctx.lastTopic = ext; _record('general', norm); return _Resp(_kb[ext]!, _ctxReplies(ext)); }
+    if (ext != null) { _ctx.lastTopic = ext; _record('general', norm); return _Resp(_kb[ext] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies(ext)); }
 
     // ═══ بحث في قاعدة المعرفة ═══
     final kb = _searchKB(norm);
-    if (kb != null) { _ctx.lastTopic = kb; _record('general', norm); return _Resp(_kb[kb]!, _ctxReplies(kb)); }
+    if (kb != null) { _ctx.lastTopic = kb; _record('general', norm); return _Resp(_kb[kb] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies(kb)); }
 
     // ═══ رد افتراضي ذكي ═══
     return _handleDefault(norm);
@@ -204,21 +209,43 @@ class ChatService extends ChangeNotifier {
   }
 
   _Resp _handleFollowUp(String n) {
-    // نعم/اشرح/تفاصيل
-    if (RegExp(r'^(نعم|ايوه|ايه|اي|يب|ايه نعم)').hasMatch(n)) {
+    // نعم/ايه — اعرض تفاصيل الموضوع السابق
+    if (RegExp(r'^(نعم|ايوه|ايه|اي|يب|ايه نعم|اوك|اوكي)').hasMatch(n)) {
       if (_ctx.lastTopic.isNotEmpty && _kb.containsKey(_ctx.lastTopic)) {
-        return _Resp(_kb[_ctx.lastTopic]!, _ctxReplies(_ctx.lastTopic));
+        return _Resp(_kb[_ctx.lastTopic] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies(_ctx.lastTopic));
       }
       return _Resp('تمام! ✅ اسألني أي تفاصيل إضافية.', _welcomeReplies());
     }
     // لا
-    if (RegExp(r'^(لا|ما ابي|مو|ما يبي)').hasMatch(n)) {
+    if (RegExp(r'^(لا|ما ابي|مو|ما يبي|ما ابغي)').hasMatch(n)) {
       return _Resp('👍 تمام! إذا احتجت شيء ثاني أنا هنا.', _welcomeReplies());
     }
-    // اشرح/وضح
-    if (RegExp(r'اشرح|وضح|بالتفصيل|تفاصيل|شرح لي').hasMatch(n)) {
+    // اشرح/وضح/تفاصيل
+    if (RegExp(r'اشرح|وضح|بالتفصيل|تفاصيل|شرح لي|زود').hasMatch(n)) {
       if (_ctx.lastTopic.isNotEmpty && _kb.containsKey(_ctx.lastTopic)) {
-        return _Resp(_kb[_ctx.lastTopic]!, _ctxReplies(_ctx.lastTopic));
+        return _Resp(_kb[_ctx.lastTopic] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies(_ctx.lastTopic));
+      }
+    }
+    // "طيب" — متابعة عامة
+    if (RegExp(r'^(طيب|تمام|زين|اوكي|اوك)').hasMatch(n)) {
+      if (_ctx.lastTopic.isNotEmpty) {
+        return _Resp(
+          '💡 تمام! تبي تعرف أكثر عن "${_ctx.lastTopic}"؟ أو عندك سؤال ثاني؟',
+          _welcomeReplies(),
+        );
+      }
+    }
+    // "كم" — سؤال عن العدد
+    if (n.startsWith('كم')) {
+      return _Resp('📊 تحب تعرف كم جرعة؟ ولا كم عمر يبدأ فيه التطعيم؟', [
+        const QuickReply(text: 'كم جرعة؟', emoji: '🔢'),
+        const QuickReply(text: 'متى يبدأ؟', emoji: '📅'),
+      ]);
+    }
+    // ليه/ليش — سؤال عن السبب
+    if (RegExp(r'^ليه|^ليش|^لماذا').hasMatch(n)) {
+      if (_ctx.lastTopic.isNotEmpty && _kb.containsKey(_ctx.lastTopic)) {
+        return _Resp(_kb[_ctx.lastTopic] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies(_ctx.lastTopic));
       }
     }
     return _Resp('🤔 ممكن توضح أكثر وش تقصد بالضبط؟', _welcomeReplies());
@@ -266,25 +293,47 @@ class ChatService extends ChangeNotifier {
   }
 
   _Resp _handleSideEffects(String n) {
-    // حرارة
-    if (n.contains('حراره') || n.contains('سخون')) {
+    // استخراج درجة الحرارة إن وُجدت
+    final temp = SmartNLP.extractTemperature(n);
+    if (temp != null) {
+      _ctx.child.mentionedSymptoms.add('حرارة');
       _ctx.lastTopic = 'حرارة بعد التطعيم';
-      return _Resp(_kb['حرارة بعد التطعيم']!, _ctxReplies('side_effects'));
+      final urgency = temp >= 39.5
+          ? '🚨 حرارة عالية! اطلب طبيب فوراً'
+          : temp >= 38.5
+              ? '⚠️ حرارة متوسطة — راقب الطفل عن كثب'
+              : '✅ حرارة خفيفة — طبيعية بعد التطعيم';
+      return _Resp(
+        '🌡️ حرارة طفلك: ${temp}°\n$urgency\n\n${_kb['حرارة بعد التطعيم'] ?? '💡 حرارة خفيفة بعد التطعيم طبيعية وتزول خلال 1-3 أيام. تعامل معها بكمادات باردة وسوائل.'}',
+        [const QuickReply(text: 'متى أخاف؟', emoji: '🚨'), const QuickReply(text: 'متى أروح للطبيب؟', emoji: '🏥')],
+      );
+    }
+
+    // حرارة بدون رقم
+    if (n.contains('حراره') || n.contains('سخون') || n.contains('يسخن')) {
+      _ctx.lastTopic = 'حرارة بعد التطعيم';
+      return _Resp(
+        _kb['حرارة بعد التطعيم'] ?? '🌡️ الحرارة بعد التطعيم طبيعية في الغالب. كم حرارته بالضبط؟',
+        [const QuickReply(text: 'حرارته 38', emoji: '🌡️'), const QuickReply(text: 'حرارته 39.5', emoji: '🌡️'), const QuickReply(text: 'متى أخاف؟', emoji: '🚨')],
+      );
     }
     // تشنجات
     if (n.contains('تشنج') || n.contains('نوبه') || n.contains('يرتعش')) {
       _ctx.lastTopic = 'تشنجات بعد التطعيم';
-      return _Resp(_kb['تشنجات بعد التطعيم']!, _ctxReplies('side_effects'));
+      return _Resp(
+        _kb['تشنجات بعد التطعيم'] ?? '🚨 التشنجات حالة طوارئ — اطلب الإسعاف فوراً!',
+        [const QuickReply(text: 'وش أسوي الحين؟', emoji: '🚨')],
+      );
     }
     // تورم
     if (n.contains('تورم') || n.contains('انتفاخ') || n.contains('ورم')) {
       _ctx.lastTopic = 'تتورم مكان الحقن';
-      return _Resp(_kb['تتورم مكان الحقن']!, _ctxReplies('side_effects'));
+      return _Resp(_kb['تتورم مكان الحقن'] ?? '💡 التورم البسيط مكان الحقن طبيعي ويروح خلال أيام.', _ctxReplies('side_effects'));
     }
     // بكاء
     if (n.contains('يبكي') || n.contains('بكاء') || n.contains('ما يسكت')) {
       _ctx.lastTopic = 'بكاء مستمر بعد التطعيم';
-      return _Resp(_kb['بكاء مستمر بعد التطعيم']!, _ctxReplies('side_effects'));
+      return _Resp(_kb['بكاء مستمر بعد التطعيم'] ?? '💡 البكاء بعد التطعيم طبيعي. حضنه واطمنه.', _ctxReplies('side_effects'));
     }
 
     // آثار تطعيم محدد
@@ -296,7 +345,7 @@ class ChatService extends ChangeNotifier {
     }
 
     _ctx.lastTopic = 'آثار جانبية';
-    return _Resp(_kb['آثار جانبية']!, _ctxReplies('side_effects'));
+    return _Resp(_kb['آثار جانبية'] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies('side_effects'));
   }
 
   String _getSpecificEffects(String vid) {
@@ -308,7 +357,7 @@ class ChatService extends ChangeNotifier {
       'pcv': '🟣 آثار PCV: نادرة وخفيفة\n✅ ألم مكان الحقن، حرارة خفيفة',
       'rota': '🔵 آثار الروتا: نادرة جداً\n✅ من أكثر التطعيمات أماناً!',
     };
-    return e[vid] ?? _kb['آثار جانبية']!;
+    return e[vid] ?? _kb['آثار جانبية'] ?? 'عذراً، لا تتوفر معلومات حالياً';
   }
 
   _Resp _handleEmergency(String n) {
@@ -328,18 +377,18 @@ class ChatService extends ChangeNotifier {
   _Resp _handleMyths(String n) {
     if (n.contains('اوتيزم') || n.contains('توحد')) {
       _ctx.lastTopic = 'التطعيم والتوحد';
-      return _Resp(_kb['التطعيم والتوحد']!, _ctxReplies('myths'));
+      return _Resp(_kb['التطعيم والتوحد'] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies('myths'));
     }
     if (n.contains('عقم') || n.contains('خصوبه')) {
       _ctx.lastTopic = 'التطعيم والعقم';
-      return _Resp(_kb['التطعيم والعقم']!, _ctxReplies('myths'));
+      return _Resp(_kb['التطعيم والعقم'] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies('myths'));
     }
     if (n.contains('يضر') || n.contains('مضره')) {
       _ctx.lastTopic = 'أساطير';
-      return _Resp(_kb['أساطير']!, _ctxReplies('myths'));
+      return _Resp(_kb['أساطير'] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies('myths'));
     }
     _ctx.lastTopic = 'أساطير';
-    return _Resp(_kb['أساطير']!, [
+    return _Resp(_kb['أساطير'] ?? 'عذراً، لا تتوفر معلومات حالياً', [
       const QuickReply(text: 'هل يسبب أوتيزم؟', emoji: '🚫'),
       const QuickReply(text: 'هل يسبب عقم؟', emoji: '🚫'),
       const QuickReply(text: 'هل مضرة؟', emoji: '🚫'),
@@ -347,13 +396,13 @@ class ChatService extends ChangeNotifier {
   }
 
   _Resp _handleSpecialCases(String n) {
-    if (n.contains('مبتسر') || n.contains('خديج')) { _ctx.lastTopic = 'للأطفال المبتسرين'; return _Resp(_kb['للأطفال المبتسرين']!, _ctxReplies('special')); }
-    if (n.contains('مرض') || n.contains('مريض')) { _ctx.lastTopic = 'للأطفال المرضى'; return _Resp(_kb['للأطفال المرضى']!, _ctxReplies('special')); }
-    if (n.contains('مرضع')) { _ctx.lastTopic = 'الأم المرضعة'; return _Resp(_kb['الأم المرضعة']!, _ctxReplies('special')); }
-    if (n.contains('حامل')) { _ctx.lastTopic = 'الحوامل'; return _Resp(_kb['الحوامل']!, _ctxReplies('special')); }
-    if (n.contains('hiv') || n.contains('ايدز')) { _ctx.lastTopic = 'HIV'; return _Resp(_kb['تطعيم الأطفال المصابين بـ HIV']!, _ctxReplies('special')); }
-    if (n.contains('سرطان')) { _ctx.lastTopic = 'سرطان'; return _Resp(_kb['الأطفال المصابين بالسرطان']!, _ctxReplies('special')); }
-    if (n.contains('سكر')) { _ctx.lastTopic = 'سكري'; return _Resp(_kb['الأطفال المصابين بالسكري']!, _ctxReplies('special')); }
+    if (n.contains('مبتسر') || n.contains('خديج')) { _ctx.lastTopic = 'للأطفال المبتسرين'; return _Resp(_kb['للأطفال المبتسرين'] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies('special')); }
+    if (n.contains('مرض') || n.contains('مريض')) { _ctx.lastTopic = 'للأطفال المرضى'; return _Resp(_kb['للأطفال المرضى'] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies('special')); }
+    if (n.contains('مرضع')) { _ctx.lastTopic = 'الأم المرضعة'; return _Resp(_kb['الأم المرضعة'] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies('special')); }
+    if (n.contains('حامل')) { _ctx.lastTopic = 'الحوامل'; return _Resp(_kb['الحوامل'] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies('special')); }
+    if (n.contains('hiv') || n.contains('ايدز')) { _ctx.lastTopic = 'HIV'; return _Resp(_kb['تطعيم الأطفال المصابين بـ HIV'] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies('special')); }
+    if (n.contains('سرطان')) { _ctx.lastTopic = 'سرطان'; return _Resp(_kb['الأطفال المصابين بالسرطان'] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies('special')); }
+    if (n.contains('سكر')) { _ctx.lastTopic = 'سكري'; return _Resp(_kb['الأطفال المصابين بالسكري'] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies('special')); }
     if (n.contains('قلب')) { _ctx.lastTopic = 'قلب'; return _Resp(_kb['الأطفال المصابين بالقلب'] ?? '🟡 عيوب القلب: جميع التطعيمات آمنة ومهمة!', _ctxReplies('special')); }
     if (n.contains('ربو')) { _ctx.lastTopic = 'ربو'; return _Resp('🟡 الأطفال المصابون بالربو:\n\n✅ جميع التطعيمات آمنة ومهمة!\n• الربو لا يمنع أي تطعيم\n• بل التطعيم يحميهم من عدوى تزيد الربو\n\n💡 استشر طبيب الربو', _ctxReplies('special')); }
     return _Resp('👶 حالات خاصة:', [
@@ -390,51 +439,112 @@ class ChatService extends ChangeNotifier {
       final match = VaccinationService.allVaccines.where((x) => x.id == v).firstOrNull;
       if (match != null) return _Resp('${match.iconEmoji} ${match.nameAr}\n\n📝 ${match.description}\n💉 ${match.doseNumber}\n📍 ${match.site}', _ctxReplies(v));
     }
-    return _Resp(_kb['ما هي اللقاحات']!, [const QuickReply(text: 'كيف تعمل؟', emoji: '🔬'), const QuickReply(text: 'هل آمنة؟', emoji: '✅')]);
+    return _Resp(_kb['ما هي اللقاحات'] ?? 'عذراً، لا تتوفر معلومات حالياً', [const QuickReply(text: 'كيف تعمل؟', emoji: '🔬'), const QuickReply(text: 'هل آمنة؟', emoji: '✅')]);
   }
 
   _Resp _handleDiseases(String n) {
     final d = SmartNLP.detectDiseaseMention(n);
     if (d != null) {
-      final dm = {'measles':'مرض السل','polio':'شلل الأطفال المرض','tetanus':'الكزاز','diphtheria':'الخناق','pertussis':'السعال الديبي','hepatitis':'التهاب الكبد ب','pneumonia':'المكورات الرئوية','rotavirus':'الروتا المرض','meningitis':'التهاب الأغشية المخية'};
+      final dm = {'measles':'الحصبة','polio':'شلل الأطفال المرض','tetanus':'الكزاز','diphtheria':'الخناق','pertussis':'السعال الديبي','hepatitis':'التهاب الكبد ب','pneumonia':'المكورات الرئوية','rotavirus':'الروتا المرض','meningitis':'التهاب الأغشية المخية'};
       final t = dm[d];
-      if (t != null && _kb.containsKey(t)) { _ctx.lastTopic = t; return _Resp(_kb[t]!, _ctxReplies('disease')); }
+      if (t != null && _kb.containsKey(t)) { _ctx.lastTopic = t; return _Resp(_kb[t] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies('disease')); }
     }
     return _Resp('🦠 الأمراض التي تحمي منها التطعيمات:\n\n1. السل\n2. شلل الأطفال\n3. الخناق\n4. الكزاز\n5. السعال الديبي\n6. التهاب الكبد B\n7. المستدمية النزلية\n8. الحصبة\n9. الحصبة الألمانية\n10. المكورات الرئوية\n11. الروتا فيروس\n\n💡 اسألني عن أي مرض!', [const QuickReply(text: 'الحصبة', emoji: '🦠'), const QuickReply(text: 'الشلل', emoji: '🦠')]);
   }
 
   _Resp _handleNutrition(String n) {
-    if (n.contains('رضاع')) { _ctx.lastTopic = 'الرضاعة والتطعيم'; return _Resp(_kb['الرضاعة والتطعيم']!, _ctxReplies('nutrition')); }
-    _ctx.lastTopic = 'تغذية الطفل والتطعيم'; return _Resp(_kb['تغذية الطفل والتطعيم']!, _ctxReplies('nutrition'));
+    if (n.contains('رضاع')) { _ctx.lastTopic = 'الرضاعة والتطعيم'; return _Resp(_kb['الرضاعة والتطعيم'] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies('nutrition')); }
+    _ctx.lastTopic = 'تغذية الطفل والتطعيم'; return _Resp(_kb['تغذية الطفل والتطعيم'] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies('nutrition'));
   }
 
   _Resp _handleColdChain(String n) {
-    if (n.contains('vvm')) { _ctx.lastTopic = 'VVM'; return _Resp(_kb['VVM']!, _ctxReplies('cold_chain')); }
-    _ctx.lastTopic = 'سلسلة التبريد'; return _Resp(_kb['سلسلة التبريد']!, _ctxReplies('cold_chain'));
+    if (n.contains('vvm')) { _ctx.lastTopic = 'VVM'; return _Resp(_kb['VVM'] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies('cold_chain')); }
+    _ctx.lastTopic = 'سلسلة التبريد'; return _Resp(_kb['سلسلة التبريد'] ?? 'عذراً، لا تتوفر معلومات حالياً', _ctxReplies('cold_chain'));
   }
 
-  _Resp _handleLocation() => _Resp(_kb['أين التطعيم']!, [const QuickReply(text: 'هل مجاني؟', emoji: '💰'), const QuickReply(text: 'متى التطعيم؟', emoji: '📅')]);
-  _Resp _handleCost() => _Resp(_kb['مجاناً']!, [const QuickReply(text: 'وين أطعم؟', emoji: '📍'), const QuickReply(text: 'متى التطعيم؟', emoji: '📅')]);
-  _Resp _handleCampaigns() => _Resp(_kb['حملات التطعيم']!, [const QuickReply(text: 'وين أطعم؟', emoji: '📍'), const QuickReply(text: 'هل مجاني؟', emoji: '💰')]);
-  _Resp _handleTravel() => _Resp(_kb['السفر والتطعيم']!, [const QuickReply(text: 'هل مجاني؟', emoji: '💰'), const QuickReply(text: 'وش التطعيمات؟', emoji: '💉')]);
-  _Resp _handleHistory() => _Resp(_kb['تاريخ التحصين في اليمن']!, _welcomeReplies());
-  _Resp _handleBenefits() => _Resp(_kb['فوائد اقتصادية']!, _welcomeReplies());
+  _Resp _handleLocation() => _Resp(_kb['أين التطعيم'] ?? 'عذراً، لا تتوفر معلومات حالياً', [const QuickReply(text: 'هل مجاني؟', emoji: '💰'), const QuickReply(text: 'متى التطعيم؟', emoji: '📅')]);
+  _Resp _handleCost() => _Resp(_kb['مجاناً'] ?? 'عذراً، لا تتوفر معلومات حالياً', [const QuickReply(text: 'وين أطعم؟', emoji: '📍'), const QuickReply(text: 'متى التطعيم؟', emoji: '📅')]);
+  _Resp _handleCampaigns() => _Resp(_kb['حملات التطعيم'] ?? 'عذراً، لا تتوفر معلومات حالياً', [const QuickReply(text: 'وين أطعم؟', emoji: '📍'), const QuickReply(text: 'هل مجاني؟', emoji: '💰')]);
+  _Resp _handleTravel() => _Resp(_kb['السفر والتطعيم'] ?? 'عذراً، لا تتوفر معلومات حالياً', [const QuickReply(text: 'هل مجاني؟', emoji: '💰'), const QuickReply(text: 'وش التطعيمات؟', emoji: '💉')]);
+  _Resp _handleHistory() => _Resp(_kb['تاريخ التحصين في اليمن'] ?? 'عذراً، لا تتوفر معلومات حالياً', _welcomeReplies());
+  _Resp _handleBenefits() => _Resp(_kb['فوائد اقتصادية'] ?? 'عذراً، لا تتوفر معلومات حالياً', _welcomeReplies());
+
+  _Resp _handleGreeting(String n) {
+    final greetings = [
+      '🌟 هلا وغلا! مرحباً بك في مستشار التحصين 🇾🇪💉',
+      '😊 يا هلا! كيف أقدر أساعدك اليوم؟',
+      '👋 أهلاً! أنا هنا للإجابة عن كل أسئلة التحصين!',
+    ];
+    final g = greetings[_ctx.turnCount % greetings.length];
+
+    String contextHint = '';
+    if (_ctx.child.hasBasicInfo) {
+      contextHint = '\n\n📌 تذكر: عمر طفلك ${_ctx.child.ageDisplay}';
+    }
+
+    return _Resp(
+      '$g$contextHint\n\n💡 اسألني عن أي شيء:\n• تطعيمات طفلك\n• الآثار الجانبية\n• أمراض ووقاية\n• حالات خاصة',
+      _welcomeReplies(),
+    );
+  }
 
   _Resp _handleDefault(String n) {
+    // هل فيه حرارة مذكورة؟
+    final temp = SmartNLP.extractTemperature(n);
+    if (temp != null && temp > 38.5) {
+      _ctx.child.mentionedSymptoms.add('حرارة');
+      _ctx.lastTopic = 'حرارة بعد التطعيم';
+      return _Resp(
+        '🌡️ حرارة طفلك ${temp}° — ${temp >= 39.5 ? '⚠️ عالية!' : 'راقب الوضع'}\n\n'
+        '${_kb['حرارة بعد التطعيم'] ?? ''}',
+        [const QuickReply(text: 'متى أخاف؟', emoji: '🚨'), const QuickReply(text: 'متى أروح للطبيب؟', emoji: '🏥')],
+      );
+    }
+
     // هل فيه أعراض مذكورة؟
     if (_ctx.child.mentionedSymptoms.isNotEmpty) {
       return _handleChildSick(n);
     }
 
-    String g = _ctx.turnCount <= 1 ? '🤖 أهلاً! ' : '🤖 ';
-    return _Resp('${g}أقدر أساعدك في كل شيء متعلق بالتحصين!\n\n💡 جرب:\n• "عمر طفلي 6 أشهر وش تطعيماته؟"\n• "وش الآثار للخماسي؟"\n• "هل يسبب أوتيزم؟"\n• "ولدي حرارته 39 وش أسوي؟"\n\nأو اختر من الاقتراحات 👇', _welcomeReplies());
+    // هل فيه عمر مذكور بدون سؤال واضح؟
+    final age = SmartNLP.extractAge(n);
+    if (age != null) {
+      return _handleAge(n);
+    }
+
+    // رد ذكي حسب مرحلة المحادثة
+    if (_ctx.turnCount <= 1) {
+      return _Resp(
+        '🤖 أهلاً! أنا مستشار التحصين الذكي 🇾🇪\n\n'
+        'أقدر أساعدك في كل شيء متعلق بالتحصين الصحي الموسع!\n\n'
+        '💡 جرب تقولي:\n'
+        '• "عمر طفلي 6 أشهر وش تطعيماته؟"\n'
+        '• "وش الآثار الجانبية للخماسي؟"\n'
+        '• "هل التطعيم يسبب أوتيزم؟"\n'
+        '• "ولدي حرارته 39 وش أسوي؟"\n'
+        '• "وين أطعم ولدي؟"\n\n'
+        'أو اختر من الاقتراحات 👇',
+        _welcomeReplies(),
+      );
+    }
+
+    return _Resp(
+      '🤖 أقدر أساعدك في كل شيء متعلق بالتحصين!\n\n'
+      '💡 جرب:\n'
+      '• "عمر طفلي 6 أشهر وش تطعيماته؟"\n'
+      '• "وش الآثار للخماسي؟"\n'
+      '• "هل يسبب أوتيزم؟"\n'
+      '• "ولدي حرارته 39 وش أسوي؟"\n\n'
+      'أو اختر من الاقتراحات 👇',
+      _welcomeReplies(),
+    );
   }
 
   // ══════════════════════════════════════════════════════════════
   //  أدوات مساعدة
   // ══════════════════════════════════════════════════════════════
 
-  Map<String, String> get _kb => mainKnowledgeBase;
+  Map<String, String> get _kb => unifiedKnowledgeBase;
 
   String? _searchExt(String n) {
     for (final e in extendedKeywordMap.entries) {
