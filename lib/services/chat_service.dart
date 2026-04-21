@@ -625,11 +625,36 @@ class ChatService extends ChangeNotifier {
     return _Resp(_kb['كم جرعة'] ?? '📊 كم جرعة أي تطعيم بالضبط؟', _ctxReplies('dose'));
   }
 
+  /// خريطة تطابق IDs العامة مع IDs التطعيمات
+  static final Map<String, List<String>> _vaccineIdMapping = {
+    'bcg': ['bcg'],
+    'opv': ['opv0', 'opv1', 'opv2', 'opv3', 'opv4', 'opv5'],
+    'ipv': ['ipv'],
+    'penta': ['pentavalent1', 'pentavalent2', 'pentavalent3'],
+    'pcv': ['pcv1', 'pcv2', 'pcv3'],
+    'rota': ['rv1', 'rv2'],
+    'mr': ['mr1', 'mr2', 'mr_school'],
+    'td': ['td_girls'],
+    'td_girls': ['td_girls'],
+    'vitA': ['vitA_1', 'vitA_2', 'vitA_3', 'vitA_school'],
+    'hepb0': ['hepb0'],
+    'dtp': ['dtp_booster', 'dtp_school'],
+  };
+
+  List<Vaccine> _getVaccinesById(String genericId) {
+    final mapping = _vaccineIdMapping[genericId];
+    if (mapping != null) {
+      return VaccinationService.allVaccines.where((v) => mapping.contains(v.id)).toList();
+    }
+    return VaccinationService.allVaccines.where((v) => v.id == genericId).toList();
+  }
+
   _Resp _handleVaccineTypes(String n) {
     final v = SmartNLP.detectVaccineMention(n);
     if (v != null) {
-      final match = VaccinationService.allVaccines.where((x) => x.id == v).firstOrNull;
-      if (match != null) {
+      final matches = _getVaccinesById(v);
+      if (matches.isNotEmpty) {
+        final match = matches.first;
         _ctx.lastVaccine = v;
         _ctx.lastTopic = v;
         return _Resp('${match.iconEmoji} ${match.nameAr}\n\n📝 ${match.description}\n💉 ${match.doseNumber}\n📍 ${match.site}', _ctxReplies(v));
@@ -948,6 +973,12 @@ class ChatService extends ChangeNotifier {
       'rota': [const QuickReply(text: 'وش الآثار؟', emoji: '⚠️'), const QuickReply(text: 'كم جرعة؟', emoji: '🔢')],
       'ipv': [const QuickReply(text: 'الفرق OPV و IPV؟', emoji: '🔵'), const QuickReply(text: 'وش الآثار؟', emoji: '⚠️')],
       'vitA': [const QuickReply(text: 'كم جرعة؟', emoji: '🔢'), const QuickReply(text: 'متى يُعطى؟', emoji: '📅')],
+      'hepb0': [const QuickReply(text: 'وش الآثار؟', emoji: '⚠️'), const QuickReply(text: 'وش التهاب الكبد؟', emoji: '🦠')],
+      'dtp': [const QuickReply(text: 'كم جرعة؟', emoji: '🔢'), const QuickReply(text: 'وش الآثار؟', emoji: '⚠️')],
+      'pentavalent1': [const QuickReply(text: 'وش الآثار؟', emoji: '⚠️'), const QuickReply(text: 'كم جرعة؟', emoji: '🔢')],
+      'pcv1': [const QuickReply(text: 'وش الآثار؟', emoji: '⚠️'), const QuickReply(text: 'وش المكورات الرئوية؟', emoji: '🦠')],
+      'rv1': [const QuickReply(text: 'وش الآثار؟', emoji: '⚠️'), const QuickReply(text: 'كم جرعة؟', emoji: '🔢')],
+      'mr1': [const QuickReply(text: 'متى الجرعة الثانية؟', emoji: '📅'), const QuickReply(text: 'وش الآثار؟', emoji: '⚠️')],
       'side_effects': [const QuickReply(text: 'حرارة بعد التطعيم', emoji: '🌡️'), const QuickReply(text: 'تشنجات', emoji: '🚨'), const QuickReply(text: 'متى أخاف؟', emoji: '⚠️')],
       'special': [const QuickReply(text: 'مبتسرين', emoji: '👶'), const QuickReply(text: 'مرضى', emoji: '🤒'), const QuickReply(text: 'سكر', emoji: '🟡'), const QuickReply(text: 'قلب', emoji: '❤️')],
       'myths': [const QuickReply(text: 'هل يسبب أوتيزم؟', emoji: '🚫'), const QuickReply(text: 'هل يسبب عقم؟', emoji: '🚫'), const QuickReply(text: 'هل مضرة؟', emoji: '🚫')],
