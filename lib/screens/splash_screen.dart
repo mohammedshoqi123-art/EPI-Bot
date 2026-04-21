@@ -228,16 +228,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                     child: Column(
                       children: [
                         Text(
-                          'دليل إدارة اللقاحات 2022',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.3),
-                            fontSize: 11,
-                            fontFamily: 'Tajawal',
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          'دليل التحصين الموسع أغسطس 2025',
+                          'دليل التحصين الموسع - اليمن أغسطس 2025',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.3),
                             fontSize: 11,

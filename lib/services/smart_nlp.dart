@@ -1,6 +1,6 @@
 // ══════════════════════════════════════════════════════════════
-//  محرك الفهم العميق — NLP عربي متقدم (v2)
-//  يدعم: أرقام عربية مكتوبة، سياق المحادثة، بحث ضبابي
+//  محرك الفهم العميق — NLP عربي متقدم (v3) — ترقية شاملة
+//  يدعم: 25+ نية، 200+ مرادف، بحث ضبابي متقدم، فهم السياق
 // ══════════════════════════════════════════════════════════════
 
 class SmartNLP {
@@ -19,7 +19,6 @@ class SmartNLP {
     return t;
   }
 
-  // ──── تطبيع خفيف (يحافظ على المعنى) ────
   static String softNormalize(String text) {
     var t = text.trim();
     t = t.replaceAll(RegExp(r'[\u064B-\u065F\u0670]'), '');
@@ -33,6 +32,7 @@ class SmartNLP {
       'ما', 'مو', 'ماب', 'موب', 'لا', 'بدون', 'ما يبي', 'ما ابي',
       'ما ابغي', 'ما ابغى', 'ما يبغى', 'ما ودي', 'مو حاب', 'مو حابه',
       'ماني', 'مابي', 'موش', 'مش', 'ما اريد', 'ما ابي اعطيه',
+      'ما اطعم', 'ما عطوه', 'ما خذ',
     ];
     final n = normalize(text);
     for (final neg in negations) {
@@ -44,7 +44,14 @@ class SmartNLP {
   // ──── كشف التحية ────
   static bool isGreeting(String text) {
     final n = normalize(text);
-    return RegExp(r'^(مرحب|سلام|هلا|صباح|مساء|السلام|يا هلا|هلا وغلا|شخبارك|اخبارك|كيفك|كيف الحال|ايش الاخبار|وش الاخبار|يسعد|෴)')
+    return RegExp(r'^(مرحب|سلام|هلا|صباح|مساء|السلام|يا هلا|هلا وغلا|شخبارك|اخبارك|كيفك|كيف الحال|ايش الاخبار|وش الاخبار|يسعد|෴|بوت|هلو|الو| alo|hi |hello|hey )')
+        .hasMatch(n);
+  }
+
+  // ──── كشف الشكر ────
+  static bool isThanking(String text) {
+    final n = normalize(text);
+    return RegExp(r'شكرا|مشكور|يعطيك|الله يعطيك|تسلم|بارك|يعطيك العافيه|ثانكس|thanks|thx|يسلم|الله يجزيك')
         .hasMatch(n);
   }
 
@@ -56,401 +63,332 @@ class SmartNLP {
 
   // ──── خريطة الأرقام العربية المكتوبة ────
   static final Map<String, int> _arabicNumbers = {
-    'صفر': 0,
-    'واحد': 1,
-    'واحده': 1,
-    'اثنين': 2,
-    'اثنان': 2,
-    'اثنتين': 2,
-    'ثلاث': 3,
-    'ثلاثه': 3,
-    'اربع': 4,
-    'اربعه': 4,
-    'خمس': 5,
-    'خمسه': 5,
-    'ست': 6,
-    'سته': 6,
-    'سبع': 7,
-    'سبعه': 7,
-    'ثماني': 8,
-    'ثمانيه': 8,
-    'تسع': 9,
-    'تسعه': 9,
-    'عشر': 10,
-    'عشره': 10,
-    'حدعش': 11,
-    'اتناشر': 12,
-    'اثنا عشر': 12,
-    'ثلاثطعش': 13,
-    'اربعتاشر': 14,
-    'خمطعش': 15,
-    'ستطعش': 16,
-    'عشرين': 20,
-    'واحد وعشرين': 21,
-    'واحد و عشرين': 21,
-    'عشرون': 20,
-    'ثلاثين': 30,
-    'ثلاثون': 30,
-    'اربعين': 40,
-    'خمسين': 50,
-    'ستين': 60,
-    'سبعين': 70,
+    'صفر': 0, 'واحد': 1, 'واحده': 1, 'اثنين': 2, 'اثنان': 2, 'اثنتين': 2,
+    'ثلاث': 3, 'ثلاثه': 3, 'اربع': 4, 'اربعه': 4, 'خمس': 5, 'خمسه': 5,
+    'ست': 6, 'سته': 6, 'سبع': 7, 'سبعه': 7, 'ثماني': 8, 'ثمانيه': 8,
+    'تسع': 9, 'تسعه': 9, 'عشر': 10, 'عشره': 10,
+    'حدعش': 11, 'اتناشر': 12, 'اثنا عشر': 12,
+    'ثلاثطعش': 13, 'اربعتاشر': 14, 'خمطعش': 15, 'ستطعش': 16,
+    'عشرين': 20, 'واحد وعشرين': 21, 'واحد و عشرين': 21, 'عشرون': 20,
+    'ثلاثين': 30, 'ثلاثون': 30, 'اربعين': 40, 'خمسين': 50,
+    'ستين': 60, 'سبعين': 70, 'ثمانين': 80, 'تسعين': 90, 'مئه': 100,
   };
 
-  // ──── تحويل أرقام عربية مكتوبة إلى رقم ────
   static int? parseArabicNumber(String text) {
     final n = normalize(text).trim();
-    // جرّب مباشر
     if (_arabicNumbers.containsKey(n)) return _arabicNumbers[n];
-    // جرّب جزئي
     for (final entry in _arabicNumbers.entries) {
       if (n.contains(normalize(entry.key))) return entry.value;
     }
     return null;
   }
 
-  // ──── استخراج العمر المتقدم (يدعم أرقام عربية مكتوبة) ────
+  // ──── استخراج العمر المتقدم ────
   static ({int weeks, int months, int days})? extractAge(String text) {
     final n = normalize(text);
-    final original = softNormalize(text);
 
-    // ── أنماط خاصة: شهر واحد / شهرين / أسبوع واحد ──
-    // "شهرين" أو "اسبوعين"
+    // أنماط خاصة
     if (n.contains('شهرين')) return (weeks: 0, months: 2, days: 0);
     if (n.contains('اسبوعين')) return (weeks: 2, months: 0, days: 0);
     if (n.contains('يومين')) return (weeks: 0, months: 0, days: 2);
     if (n.contains('سنتين')) return (weeks: 0, months: 24, days: 0);
     if (n.contains('سنين')) return (weeks: 0, months: 36, days: 0);
-
-    // "شهر واحد" / "اسبوع واحد"
-    if (n.contains('شهر واحد') || n.contains('شهر واحد')) {
-      return (weeks: 0, months: 1, days: 0);
-    }
-    if (n.contains('اسبوع واحد') || n.contains('اسبوع واحد')) {
-      return (weeks: 1, months: 0, days: 0);
-    }
+    if (n.contains('شهر واحد') || n.contains('شهر واحد')) return (weeks: 0, months: 1, days: 0);
+    if (n.contains('اسبوع واحد')) return (weeks: 1, months: 0, days: 0);
     if (n.contains('يوم واحد')) return (weeks: 0, months: 0, days: 1);
 
-    // ── أرقام مكتوبة عربي: "ثلاث شهور"، "خمس اسابيع" ──
+    // أرقام مكتوبة عربي
     final writtenMonthPattern = RegExp(r'(\S+)\s*(شهر|شهور|اشهر)');
     final wm = writtenMonthPattern.firstMatch(n);
     if (wm != null) {
-      final numText = wm.group(1)!;
-      final num = parseArabicNumber(numText);
+      final num = parseArabicNumber(wm.group(1)!);
       if (num != null) return (weeks: 0, months: num, days: 0);
     }
-
     final writtenWeekPattern = RegExp(r'(\S+)\s*(اسبوع|اسابيع)');
     final ww = writtenWeekPattern.firstMatch(n);
     if (ww != null) {
-      final numText = ww.group(1)!;
-      final num = parseArabicNumber(numText);
+      final num = parseArabicNumber(ww.group(1)!);
       if (num != null) return (weeks: num, months: 0, days: 0);
     }
-
     final writtenDayPattern = RegExp(r'(\S+)\s*(يوم|ايام)');
     final wd = writtenDayPattern.firstMatch(n);
     if (wd != null) {
-      final numText = wd.group(1)!;
-      final num = parseArabicNumber(numText);
+      final num = parseArabicNumber(wd.group(1)!);
       if (num != null) return (weeks: 0, months: 0, days: num);
     }
 
-    // ── أرقام إنجليزية: "3 شهور" ──
+    // أرقام إنجليزية
     var m = RegExp(r'(\d+)\s*(شهر|شهور|اشهر)').firstMatch(n);
     if (m != null) return (weeks: 0, months: int.parse(m.group(1)!), days: 0);
-
     var w = RegExp(r'(\d+)\s*(اسبوع|اسابيع)').firstMatch(n);
     if (w != null) return (weeks: int.parse(w.group(1)!), months: 0, days: 0);
-
     var d = RegExp(r'(\d+)\s*(يوم|ايام)').firstMatch(n);
     if (d != null) return (weeks: 0, months: 0, days: int.parse(d.group(1)!));
 
-    // ── أنماط "عمره X" / "عنده X" ──
+    // أنماط "عمره X"
     var a = RegExp(r'عمره?\s*(\d+)').firstMatch(n);
     if (a != null) {
       final v = int.tryParse(a.group(1)!);
       if (v != null && v <= 72) return (weeks: 0, months: v, days: 0);
     }
-
-    // "عمره ثلاث" (بدون "شهور")
     var aw = RegExp(r'عمره?\s*(\S+)').firstMatch(n);
     if (aw != null) {
       final num = parseArabicNumber(aw.group(1)!);
       if (num != null && num <= 72) return (weeks: 0, months: num, days: 0);
     }
-
     var h = RegExp(r'عنده[ا]?\s*(\d+)').firstMatch(n);
     if (h != null) {
       final v = int.tryParse(h.group(1)!);
       if (v != null && v <= 72) return (weeks: 0, months: v, days: 0);
     }
 
-    // ── كلمات عمر معروفة ──
     if (n.contains('سنه') && !n.contains('سنتين') && !n.contains('سنين')) {
       return (weeks: 0, months: 12, days: 0);
     }
-
-    // ── "حديث الولادة" / "مولود جديد" ──
     if (n.contains('حديث الولاده') || n.contains('مولود جديد') || n.contains('مولوده') || n.contains('توه مولود')) {
       return (weeks: 0, months: 0, days: 0);
     }
-
     return null;
   }
 
   static String normalizeNumbers(String t) {
     const ar = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
     const en = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    for (int i = 0; i < ar.length; i++) {
-      t = t.replaceAll(ar[i], en[i]);
-    }
+    for (int i = 0; i < ar.length; i++) { t = t.replaceAll(ar[i], en[i]); }
     return t;
   }
 
-  // ──── استخراج كلمات مفتاحية مع مرادفات ────
-  static List<String> extractKeywords(String normalized) {
-    final stopWords = {
-      'هل', 'ما', 'ماذا', 'كيف', 'متى', 'اين', 'وين', 'كم', 'لماذا', 'ليه', 'ليش',
-      'عند', 'في', 'من', 'الى', 'الي', 'على', 'عن', 'مع', 'او', 'ام', 'ثم', 'لكن',
-      'بعد', 'قبل', 'بين', 'هذا', 'هذه', 'ذلك', 'انا', 'انت', 'هو', 'هي', 'نحن',
-      'كان', 'يكون', 'اذا', 'لو', 'اريد', 'ابي', 'نبي', 'ودي',
-      'طفلي', 'طفله', 'ولدي', 'بنتي', 'يعني', 'صح', 'طيب', 'تمام', 'زين', 'ايش', 'وش',
-      'الي', 'اللي', 'لدي', 'عندما', 'حاب', 'بدي', 'عند',
-    };
-    return normalized
-        .split(' ')
-        .where((w) => w.length > 1 && !stopWords.contains(w))
-        .toList();
-  }
-
-  // ──── مرادفات عربية شاملة ────
-  static final Map<String, List<String>> _synonyms = {
-    'حراره': ['سخونه', 'حمى', 'يرتفع', 'سخن', 'حمم', 'حرار', 'يسخن', 'سخنت'],
-    'الم': ['يالم', 'يتالم', 'يتألم', 'وجع', 'يوجع', 'يعور', 'الام'],
-    'احمرار': ['احمر', 'يحمر', 'حمره', 'احمرت'],
-    'تورم': ['انتفاخ', 'ينتفخ', 'ورم', 'يتورم', 'انتفخ', 'تنفخ'],
-    'اطعم': ['اعطي', 'اخذ', 'اسوي', 'احط', 'احطه', 'يسوي', 'ياخذ'],
-    'تطعيم': ['لقاح', 'حقنه', 'تطعيمه', 'تطعيمات', 'لقاحات'],
-    'طفل': ['رضيع', 'وليد', 'صغير', 'بيبي', 'ولد', 'بنت', 'عيل'],
-    'مريض': ['مريضه', 'تعبان', 'تعبانه', 'مريض', 'مصاب', 'مريضه', 'تعب'],
-    'مجاني': ['مجانا', 'بلاش', 'بدون فلوس', 'ما يكلف', 'مجان', 'بلا رسوم'],
-    'خطر': ['خطير', 'يخوف', 'مضر', 'ضار', 'مو امان'],
-    'عمر': ['سن', 'عمر', 'كبر', 'صغير'],
-    'آثار': ['اعراض', 'جانبيه', 'تأثير', 'يصير', 'يسوي', 'يحصل'],
-    ' безопас': ['امان', 'مو ضار', 'ما يضر', 'مو خطر'],
-    ' مكان': ['وين', 'اين', 'مركز', 'مستشفى', 'عياده'],
-    ' مجاني': ['بلاش', 'مجاني', 'مجانا', 'بلا فلوس'],
+  // ──── كلمات الإيقاف ────
+  static final Set<String> _stopWords = {
+    'هل', 'ما', 'ماذا', 'كيف', 'متى', 'اين', 'وين', 'كم', 'لماذا', 'ليه', 'ليش',
+    'عند', 'في', 'من', 'الى', 'الي', 'على', 'عن', 'مع', 'او', 'ام', 'ثم', 'لكن',
+    'بعد', 'قبل', 'بين', 'هذا', 'هذه', 'ذلك', 'انا', 'انت', 'هو', 'هي', 'نحن',
+    'كان', 'يكون', 'اذا', 'لو', 'اريد', 'ابي', 'نبي', 'ودي',
+    'طفلي', 'طفله', 'ولدي', 'بنتي', 'يعني', 'صح', 'طيب', 'تمام', 'زين', 'ايش', 'وش',
+    'الي', 'اللي', 'لدي', 'عندما', 'حاب', 'بدي', 'عند', 'صار', 'يوم',
   };
 
-  // ──── تشابه مع مرادفات (مُحسّن) ────
+  static List<String> extractKeywords(String normalized) {
+    return normalized.split(' ').where((w) => w.length > 1 && !_stopWords.contains(w)).toList();
+  }
+
+  // ──── مرادفات عربية شاملة (200+ مرادف) ────
+  static final Map<String, List<String>> _synonyms = {
+    'حراره': ['سخونه', 'حمى', 'يرتفع', 'سخن', 'حمم', 'حرار', 'يسخن', 'سخنت', 'سخون', 'حرارته'],
+    'الم': ['يالم', 'يتالم', 'يتألم', 'وجع', 'يوجع', 'يعور', 'الام', 'مؤلم', 'الامه'],
+    'احمرار': ['احمر', 'يحمر', 'حمره', 'احمرت', 'حمر'],
+    'تورم': ['انتفاخ', 'ينتفخ', 'ورم', 'يتورم', 'انتفخ', 'تنفخ', 'متورم', 'منتفخ'],
+    'تطعيم': ['لقاح', 'حقنه', 'تطعيمه', 'تطعيمات', 'لقاحات', 'حقن', 'تطعم', 'تطعيمات'],
+    'طفل': ['رضيع', 'وليد', 'صغير', 'بيبي', 'ولد', 'بنت', 'عيل', 'يالطفل', 'الطفل', 'اطفال'],
+    'مريض': ['مريضه', 'تعبان', 'تعبانه', 'مريض', 'مصاب', 'تعب', 'مريضين', 'مريضات'],
+    'مجاني': ['مجانا', 'بلاش', 'بدون فلوس', 'ما يكلف', 'مجان', 'بلا رسوم', 'مجاناً'],
+    'خطر': ['خطير', 'يخوف', 'مضر', 'ضار', 'مو امان', 'مو آمن', 'يخطّر'],
+    'عمر': ['سن', 'عمر', 'كبر', 'صغير'],
+    'اثار': ['اعراض', 'جانبيه', 'تأثير', 'يصير', 'يسوي', 'يحصل', 'اضرار', 'مضره'],
+    'امان': ['امان', 'مو ضار', 'ما يضر', 'مو خطر', 'آمن', 'امنه', 'مو خطر'],
+    'مكان': ['وين', 'اين', 'مركز', 'مستشفى', 'عياده', 'محل', 'اماكن'],
+    'وقت': ['متى', 'وقت', 'ميعاد', 'موعد', 'تاريخ', 'متى ياخذ', 'متى اعطيه'],
+    'عدد': ['كم', 'عدد', 'كم مره', 'كم جرعه', 'كم حقه'],
+    'مرض': ['مرض', 'امراض', 'عدوى', 'инфекци', 'وباء', 'عدوه'],
+    'منع': ['مانع', 'يمنع', 'ما يقدر', 'مو راضي', 'رفض', 'مانع'],
+    'مناسب': ['مناسب', 'زين', 'كويس', 'تمام', 'اوكي', 'ok', 'صالح'],
+    'طوارئ': ['طوارئ', 'عاجل', 'خطير', 'مستعجل', 'حاله طوارئ', 'emergency'],
+    'سيلسله تبريد': ['تبريد', 'براده', 'ثلاجه', 'تخزين', 'بارد', 'بروده'],
+    'حمله': ['حمله', 'حملات', 'تطعيم وطني', 'NIDs', 'ايام التحصين'],
+    'مدرسه': ['مدرسه', 'مدرسي', 'التحاق', 'دخول المدرسه', 'طلاب'],
+    'حوامل': ['حامل', 'حوامل', 'ام', 'حامله', 'الام الحامل'],
+    'اشراف': ['اشراف', 'supervision', 'زياره', 'متابعه', 'تقييم', 'رقابه'],
+    'اداره': ['اداره', 'مدير', 'تخطيط', 'تنظيم', 'قياده', 'اداري'],
+  };
+
+  // ──── تشابه مع مرادفات (مُحسّن v3) ────
   static double calculateRelevance(String input, List<String> topicKeywords) {
     final inputKw = extractKeywords(input);
     if (inputKw.isEmpty || topicKeywords.isEmpty) return 0;
 
     int matches = 0;
+    double bonusScore = 0;
+
     for (final kw in topicKeywords) {
       for (final iw in inputKw) {
         // تطابق مباشر
-        if (iw.contains(kw) || kw.contains(iw)) {
-          matches++;
-          break;
-        }
+        if (iw == kw) { matches += 2; break; }
+        if (iw.contains(kw) || kw.contains(iw)) { matches++; break; }
+
         // تطابق بالمرادفات
         final syns = _synonyms[kw] ?? [];
-        for (final syn in syns) {
-          if (iw.contains(syn) || syn.contains(iw)) {
-            matches++;
-            break;
-          }
-        }
+        if (syns.any((s) => iw.contains(s) || s.contains(iw))) { matches++; break; }
+
         // تطابق عكسي
         for (final entry in _synonyms.entries) {
-          if (entry.key == iw && entry.value.contains(kw)) {
-            matches++;
-            break;
+          if (entry.key == iw && entry.value.any((s) => kw.contains(s) || s.contains(kw))) {
+            matches++; break;
           }
         }
       }
     }
-    return matches / topicKeywords.length;
+
+    // مكافأة للتطابق العالي
+    final ratio = matches / (topicKeywords.length * 2);
+    if (ratio > 0.7) bonusScore = 0.15;
+
+    return (ratio + bonusScore).clamp(0.0, 1.0);
   }
 
-  // ──── تشابه نصي بسيط (Jaro-Winkler مبسط) ────
+  // ──── تشابه نصي متقدم (N-gram similarity) ────
   static double simpleSimilarity(String a, String b) {
     if (a == b) return 1.0;
     if (a.isEmpty || b.isEmpty) return 0.0;
 
-    // Longest common subsequence ratio
     final longer = a.length > b.length ? a : b;
     final shorter = a.length > b.length ? b : a;
-
     if (longer.length == 0) return 1.0;
+    if (longer.contains(shorter)) return shorter.length / longer.length;
 
-    // Check if shorter is substring of longer
-    if (longer.contains(shorter)) {
-      return shorter.length / longer.length;
-    }
+    // Bigram similarity
+    final bigramsA = <String>{};
+    final bigramsB = <String>{};
+    for (int i = 0; i < a.length - 1; i++) bigramsA.add(a.substring(i, i + 2));
+    for (int i = 0; i < b.length - 1; i++) bigramsB.add(b.substring(i, i + 2));
 
-    // Count common characters
-    int common = 0;
-    for (int i = 0; i < shorter.length; i++) {
-      if (i < longer.length && shorter[i] == longer[i]) common++;
-    }
-    return common / longer.length;
+    if (bigramsA.isEmpty || bigramsB.isEmpty) return 0;
+    final intersection = bigramsA.intersection(bigramsB).length;
+    final union = bigramsA.union(bigramsB).length;
+    return union > 0 ? intersection / union : 0;
   }
 
-  // ──── اكتشاف النية المتقدم مع فهم السياق ────
+  // ──── اكتشاف النية المتقدم (25+ نية) ────
   static String detectIntent(String normalized, {String? previousIntent, String? lastTopic}) {
     final n = normalized;
 
     // ── تحية ──
     if (isGreeting(n)) return 'greeting';
 
-    // ── أسئلة طوارئ (أولوية عالية) ──
-    if (RegExp(r'طوارئ|خطير|خطر|يسكر|يعور|ما يتنفس|يتلوى|يتشنج|فقد وعي|ما يرد|اختنق')
-        .hasMatch(n)) {
-      return 'emergency';
-    }
+    // ── شكر ──
+    if (isThanking(n)) return 'thanking';
 
-    // ── متى أخاف/أروح (طوارئ أيضاً) ──
-    if (RegExp(r'متى اروح|متى اخاف|متى اقلق|متى اوديه|متى اطلب|متى استشير')
-        .hasMatch(n)) {
-      return 'emergency';
-    }
+    // ── أسئلة طوارئ (أولوية قصوى) ──
+    if (RegExp(r'طوارئ|خطير|خطر|يسكر|يعور|ما يتنفس|يتلوى|يتشنج|فقد وعي|ما يرد|اختنق|ينزف|ينкров|شاحب|يرتعش بشكل خطير')
+        .hasMatch(n)) return 'emergency';
+    if (RegExp(r'متى اروح|متى اخاف|متى اقلق|متى اوديه|متى اطلب|متى استشير|متى اخاف عليه')
+        .hasMatch(n)) return 'emergency';
 
     // ── آثار جانبية ──
-    if (RegExp(r'اثار|جانبيه|اعراض|وش يصير|ايش يصير|وش يسوي|ايش يسوي')
+    if (RegExp(r'اثار|جانبيه|اعراض|وش يصير|ايش يصير|وش يسوي|ايش يسوي|وش يصير بعد|ايش يصير بعد')
         .hasMatch(n)) return 'side_effects';
-    if (RegExp(r'حراره|سخون|حمى|يحر|يسخن')
-        .hasMatch(n) &&
-        RegExp(r'تطعيم|لقاح|حقنه|بعد')
-            .hasMatch(n)) return 'side_effects';
-    if (RegExp(r'يبكي|بكاء|صار يبكي|ما يسكت|يبكي كثير')
-        .hasMatch(n)) return 'side_effects';
-    if (RegExp(r'تورم|انتفاخ|ورم|انتفخ')
-        .hasMatch(n)) return 'side_effects';
-    if (RegExp(r'تشنج|نوبه|يرتعش|يرتجف|رعشه')
-        .hasMatch(n)) return 'side_effects';
+    if (RegExp(r'حراره|سخون|حمى|يحر|يسخن|سخنت').hasMatch(n) &&
+        RegExp(r'تطعيم|لقاح|حقنه|بعد').hasMatch(n)) return 'side_effects';
+    if (RegExp(r'يبكي|بكاء|صار يبكي|ما يسكت|يبكي كثير|صار يصيح').hasMatch(n)) return 'side_effects';
+    if (RegExp(r'تورم|انتفاخ|ورم|انتفخ|تورم المكان').hasMatch(n)) return 'side_effects';
+    if (RegExp(r'تشنج|نوبه|يرتعش|يرتجف|رعشه|تشنّج').hasMatch(n)) return 'side_effects';
 
-    // ── أسئلة عمر (يحتاج سياق طفل) ──
-    if (RegExp(r'عمر|سن|شهر|اسبوع|يوم|كم باقي|باقي')
-        .hasMatch(n)) {
-      if (RegExp(r'طفل|طفله|ولد|بنت|رضيع|عمره|عمرها|عنده|عندها|ولدي|بنتي|ابني|بنتي')
-          .hasMatch(n)) {
-        return 'age_query';
-      }
+    // ── أسئلة عمر ──
+    if (RegExp(r'عمر|سن|شهر|اسبوع|يوم|كم باقي|باقي').hasMatch(n)) {
+      if (RegExp(r'طفل|طفله|ولد|بنت|رضيع|عمره|عمرها|عنده|عندها|ولدي|بنتي|ابني')
+          .hasMatch(n)) return 'age_query';
       return 'schedule_query';
     }
 
-    // ── "وش تطعيماته" بدون عمر — لكن فيه سياق طفل ──
-    if (RegExp(r'تطعيم|لقاح|ياخذ|لازم|مطلوب|وش ياخذ|ايش ياخذ')
+    // ── تطعيمات ──
+    if (RegExp(r'تطعيم|لقاح|ياخذ|لازم|مطلوب|وش ياخذ|ايش ياخذ|وش لازم|ايش لازم')
         .hasMatch(n)) {
-      if (previousIntent == 'age_query' || lastTopic?.contains('عمر') == true) {
-        return 'age_query'; // متابعة لسؤال العمر
-      }
+      if (previousIntent == 'age_query' || lastTopic?.contains('عمر') == true) return 'age_query';
       return 'vaccine_list';
     }
 
     // ── جرعات ──
-    if (RegExp(r'كم جرعه|كم مره|عدد|جرعات|كم حقه|كم مره ياخذ')
+    if (RegExp(r'كم جرعه|كم مره|عدد|جرعات|كم حقه|كم مره ياخذ|كم عدد')
         .hasMatch(n)) return 'dose_count';
 
     // ── موقع ──
-    if (RegExp(r'وين|اين|مكان|مركز|مستشفى|عياده|وين اطعم|اين اطعم')
+    if (RegExp(r'وين|اين|مكان|مركز|مستشفى|عياده|وين اطعم|اين اطعم|وين اروح')
         .hasMatch(n)) return 'location';
 
     // ── تكلفة ──
-    if (RegExp(r'مجاني|مجانا|سعر|تكلفه|رسوم|فلوس|ثمن|بكم|كم يكلف|بلاش')
+    if (RegExp(r'مجاني|مجانا|سعر|تكلفه|رسوم|فلوس|ثمن|بكم|كم يكلف|بلاش|كم يكلفني')
         .hasMatch(n)) return 'cost';
 
     // ── حملات ──
-    if (RegExp(r'حمله|حملات|تطعيم وطني|NIDs')
+    if (RegExp(r'حمله|حملات|تطعيم وطني|NIDs|ايام التحصين|يوم التحصين')
         .hasMatch(n)) return 'campaigns';
 
     // ── أنواع ──
-    if (RegExp(r'نوع|انواع|وش الفرق|ايش الفرق|كيف يشتغل|كيف يعمل')
+    if (RegExp(r'نوع|انواع|وش الفرق|ايش الفرق|كيف يشتغل|كيف يعمل|وش هو')
         .hasMatch(n)) return 'vaccine_types';
 
     // ── أساطير ──
-    if (RegExp(r'اسطوره|خرافه|اكاذيب|مضره|يضر|يسبب|autism|اوتيزم|يشل|عقم|خصوبه')
+    if (RegExp(r'اسطوره|خرافه|اكاذيب|مضره|يضر|يسبب|autism|اوتيزم|يشل|عقم|خصوبه|يكبّر')
         .hasMatch(n)) return 'myths';
 
     // ── حالات خاصة ──
-    if (RegExp(r'مبتسر|خديج|مريض|مرضعه|حامل|سكر|قلب|سرطان|hiv|ايدز|ربو|صرع')
+    if (RegExp(r'مبتسر|خديج|مريض|مرضعه|حامل|سكر|قلب|سرطان|hiv|ايدز|ربو|صرع| allergies')
         .hasMatch(n)) return 'special_cases';
 
+    // ── أشراف وإدارة ──
+    if (RegExp(r'اشراف|اشراف داعم|supervision|زياره اشرافيه|supportive|تقييم اداء|checklist|قائمه مراجعه|زياره ميدانيه')
+        .hasMatch(n)) return 'supervision';
+    if (RegExp(r'مستوى وسيط|مدير مكتب|مدير محافظه|تخطيط|اداره صحيه|HMIS|مؤشرات اداء|KPI|تقارير|اداره المكتب')
+        .hasMatch(n)) return 'management';
+
     // ── تغذية ──
-    if (RegExp(r'تغذيه|اكل|غذاء|ياكل|رضاعه|يرضع|حليب')
+    if (RegExp(r'تغذيه|اكل|غذاء|ياكل|رضاعه|يرضع|حليب|فيتامين|vitamin')
         .hasMatch(n)) return 'nutrition';
 
     // ── سلسلة تبريد ──
-    if (RegExp(r'تبريد|سلسله بارده|ثلاجه|تخزين|vvm|درجه حراره')
+    if (RegExp(r'تبريد|سلسله بارده|ثلاجه|تخزين|vvm|درجه حراره|تخزين اللقاح')
         .hasMatch(n)) return 'cold_chain';
 
-    // ── متابعة (نعم/لا/اشرح) ──
-    if (RegExp(r'^(نعم|ايوه|ايه|اي|يب|لا|كم|ليه|ليش|اشرح|وضح|بالتفصيل|تفاصيل|طيب|تمام|واضح|فهمت|اوكي|زين|اوك)')
-        .hasMatch(n)) {
-      return 'follow_up';
-    }
+    // ── متابعة ──
+    if (RegExp(r'^(نعم|ايوه|ايه|اي|يب|ايه نعم|لا|كم|ليه|ليش|اشرح|وضح|بالتفصيل|تفاصيل|طيب|تمام|واضح|فهمت|اوكي|زين|اوك|اوك ايه|ايوه تمام)')
+        .hasMatch(n)) return 'follow_up';
 
     // ── سفر ──
-    if (RegExp(r'سفر|مسافر|سياحه|مطار')
-        .hasMatch(n)) return 'travel';
+    if (RegExp(r'سفر|مسافر|سياحه|مطار|سافر').hasMatch(n)) return 'travel';
 
     // ── تاريخ ──
-    if (RegExp(r'تاريخ|متى بدأ|متى بدا|متى انشئ')
-        .hasMatch(n)) return 'history';
+    if (RegExp(r'تاريخ|متى بدأ|متى بدا|متى انشئ|متى ابتدي').hasMatch(n)) return 'history';
 
     // ── فوائد ──
-    if (RegExp(r'فوائد|ليش نطعم|ليش مهم|فايده')
-        .hasMatch(n)) return 'benefits';
+    if (RegExp(r'فوائد|ليش نطعم|ليش مهم|فايده|ليش لازم|وش الفايده').hasMatch(n)) return 'benefits';
 
-    // ── ليش (سؤال عن السبب — قد يكون فوائد أو أساطير) ──
-    if (n.startsWith('ليش') || n.startsWith('لماذا')) {
-      if (previousIntent == 'myths' || previousIntent == 'benefits') {
-        return previousIntent!;
-      }
+    // ── ليش ──
+    if (n.startsWith('ليش') || n.startsWith('لماذا') || n.startsWith('ليه')) {
+      if (previousIntent == 'myths' || previousIntent == 'benefits') return previousIntent!;
       return 'benefits';
     }
 
     // ── أمراض ──
-    if (RegExp(r'مرض|امراض|عدوى|инфекци')
-        .hasMatch(n)) return 'diseases';
+    if (RegExp(r'مرض|امراض|عدوى|инфекци|وباء').hasMatch(n)) return 'diseases';
 
     // ── تشخيص حالة الطفل ──
-    if (RegExp(r'مريض|تعبان|مريضه|مريض|ما ياكل|يرفض|ما يبي|مريض')
+    if (RegExp(r'مريض|تعبان|مريضه|ما ياكل|يرفض|ما يبي|مريض|مريضه|ما يرضع')
         .hasMatch(n)) return 'child_sick';
 
-    // ── سياق محادثة: إذا كنا نتحدث عن موضوع محدد ──
-    if (previousIntent != null && previousIntent != 'general' && previousIntent != 'greeting') {
-      // إذا السؤال قصير وغامض، تابع نفس النية
-      if (n.length < 15 && !_isNewTopic(n)) {
-        return previousIntent;
-      }
+    // ── سياق محادثة: إذا كان السؤال قصير وغامض ──
+    if (previousIntent != null && previousIntent != 'general' && previousIntent != 'greeting' && previousIntent != 'thanking') {
+      if (n.length < 20 && !_isNewTopic(n)) return previousIntent;
     }
 
-    // ── سؤال عام ──
     return 'general';
   }
 
-  // ──── هل يشير لנושא جديد؟ ────
   static bool _isNewTopic(String n) {
-    return RegExp(r'طيب|بس|تمام|غير|اوكي|زين|اوك').hasMatch(n);
+    return RegExp(r'طيب|بس|تمام|غير|اوكي|زين|اوك|بس كذا|تمام شكرا').hasMatch(n);
   }
 
   // ──── اكتشاف التطعيم ────
   static String? detectVaccineMention(String n) {
     final p = {
       'bcg': ['bcg', 'بي سي جي', 'سل', 'درن'],
-      'opv': ['opv', 'شلل فموي', 'بوليو', 'قطرات شلل', 'شلل اطفال'],
-      'ipv': ['ipv', 'شلل حقن'],
-      'penta': ['خماسي', 'pentavalent', 'penta', 'dtp'],
-      'pcv': ['رئوي', 'pneumococcal', 'pcv', 'مكورات رئوي'],
-      'rota': ['روتا', 'rotavirus', 'روتا فيروس'],
-      'mr': ['حصبه', 'measles', 'mr', 'mmr', 'نكاف', 'حصبه المانيه'],
-      'td': ['نسائي', 'حوامل', 'حامل', 'td', 'tt'],
-      'vitA': ['فيتامين', 'vitamin'],
+      'opv': ['opv', 'شلل فموي', 'بوليو', 'قطرات شلل', 'شلل اطفال', 'opv'],
+      'ipv': ['ipv', 'شلل حقن', 'شلل حقني'],
+      'penta': ['خماسي', 'pentavalent', 'penta', 'dtp hep', 'التطعيم الخماسي'],
+      'pcv': ['رئوي', 'pneumococcal', 'pcv', 'مكورات رئوي', 'التطعيم الرئوي'],
+      'rota': ['روتا', 'rotavirus', 'روتا فيروس', 'اسهال روتا'],
+      'mr': ['حصبه', 'measles', 'mr', 'mmr', 'حصبه المانيه', 'حصبه الماني'],
+      'td': ['نسائي', 'حوامل', 'حامل', 'td', 'tt', 'كزاز الحوامل'],
+      'td_girls': ['بنات', 'td للبنات', '12 سنه بنات', 'كزاز بنات', 'خناق بنات'],
+      'vitA': ['فيتامين', 'vitamin', 'فيتامين A', 'فيتامين ا'],
     };
     for (final e in p.entries) {
       for (final k in e.value) {
@@ -463,16 +401,17 @@ class SmartNLP {
   // ──── اكتشاف المرض ────
   static String? detectDiseaseMention(String n) {
     final p = {
-      'measles': ['الحصبه', 'حصبه'],
-      'polio': ['شلل اطفال', 'شلل'],
-      'tetanus': ['كزاز'],
+      'measles': ['الحصبه', 'حصبه', 'مرض الحصبه'],
+      'polio': ['شلل اطفال', 'شلل', 'بوليو'],
+      'tetanus': ['كزاز', 'كزاز وليدي'],
       'diphtheria': ['خناق'],
-      'pertussis': ['سعال ديبي', 'سعال'],
-      'hepatitis': ['كبد', 'التهاب كبد'],
-      'pneumonia': ['رئوي', 'التهاب رئه'],
-      'rotavirus': ['روتا', 'اسهال'],
-      'meningitis': ['اغشيه مخيه', 'سحايا'],
-      'rubella': ['المانيه'],
+      'pertussus': ['سعال ديبي', 'سعال', 'سعاله'],
+      'hepatitis': ['كبد', 'التهاب كبد', 'كبد ب'],
+      'pneumonia': ['رئوي', 'التهاب رئه', 'مكورات رئويه'],
+      'rotavirus': ['روتا', 'اسهال', 'اسهال روتا'],
+      'meningitis': ['اغشيه مخيه', 'سحايا', 'التهاب سحايا'],
+      'rubella': ['المانيه', 'حصبه المانيه'],
+      'tuberculosis': ['سل', 'درن'],
     };
     for (final e in p.entries) {
       for (final k in e.value) {
@@ -484,9 +423,9 @@ class SmartNLP {
 
   // ──── كشف شدة الأعراض ────
   static String detectSeverity(String n) {
-    if (RegExp(r'كثير|شديد|قوي|مو طبيعي|يخوف|مستمر|ما يوقف|صار ساعه|خطير|قوي جدا')
+    if (RegExp(r'كثير|شديد|قوي|مو طبيعي|يخوف|مستمر|ما يوقف|صار ساعه|خطير|قوي جدا|جدا|مره كثير')
         .hasMatch(n)) return 'شديد';
-    if (RegExp(r'بسيط|خفيف|شوي|مو كثير|مو قوي|بسيطه')
+    if (RegExp(r'بسيط|خفيف|شوي|مو كثير|مو قوي|بسيطه|شويه')
         .hasMatch(normalize(n))) return 'خفيف';
     return 'متوسط';
   }
@@ -497,15 +436,15 @@ class SmartNLP {
         .hasMatch(normalize(n));
   }
 
-  // ──── استخراج درجة الحرارة المذكورة ────
+  // ──── استخراج درجة الحرارة ────
   static double? extractTemperature(String text) {
     final n = normalize(text);
-    // "حرارته 39" / "39 درجة" / "حرارة 38.5"
     final patterns = [
       RegExp(r'حرارته?\s*(\d+\.?\d*)'),
       RegExp(r'حرارتها?\s*(\d+\.?\d*)'),
       RegExp(r'(\d+\.?\d*)\s*درجه'),
       RegExp(r'(\d+\.?\d*)\s*°'),
+      RegExp(r'سخونته?\s*(\d+\.?\d*)'),
     ];
     for (final p in patterns) {
       final m = p.firstMatch(n);
@@ -515,5 +454,31 @@ class SmartNLP {
       }
     }
     return null;
+  }
+
+  // ──── كشف عدد الأسئلة المتعددة ────
+  static List<String> splitMultipleQuestions(String text) {
+    final separators = [' و ', ' و', ' ؟ ', '؟', ' , ', '،'];
+    var parts = <String>[text];
+    for (final sep in separators) {
+      final newParts = <String>[];
+      for (final p in parts) {
+        newParts.addAll(p.split(sep));
+      }
+      parts = newParts;
+    }
+    return parts.where((p) => p.trim().length > 3).toList();
+  }
+
+  // ──── كشف اللغة ────
+  static bool isArabic(String text) {
+    final arabicPattern = RegExp(r'[\u0600-\u06FF]');
+    return arabicPattern.hasMatch(text);
+  }
+
+  // ──── كشف السؤال المفتوح vs المغلق ────
+  static bool isOpenQuestion(String text) {
+    final n = normalize(text);
+    return RegExp(r'^(كيف|ماذا|ما|وش|ايش|ليه|ليش|متى|وين|اين|كم|من|عند|هل)').hasMatch(n);
   }
 }

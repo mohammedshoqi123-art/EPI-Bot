@@ -3,8 +3,8 @@ import '../models/vaccine_model.dart';
 
 class VaccinationService extends ChangeNotifier {
   // ══════════════════════════════════════════════════════════════
-  // اليمن - برنامج التحصين الصحي الموسع (EPI)
-  // الجدول الكامل للتطعيمات حسب الدليل الرسمي أغسطس 2025
+  //  اليمن - برنامج التحصين الصحي الموسع (EPI)
+  //  الجدول الكامل للتطعيمات حسب الدليل الرسمي أغسطس 2025
   // ══════════════════════════════════════════════════════════════
 
   static const List<Vaccine> allVaccines = [
@@ -21,7 +21,7 @@ class VaccinationService extends ChangeNotifier {
       color: '#E74C3C',
       iconEmoji: '🩸',
       sideEffects: ['احمرار مكان الحقن', 'تورم بسيط', 'قُرحة صغيرة تشفى تلقائياً خلال 2-3 أشهر'],
-      contraindications: ['ضعف المناعة الشديد', 'ال hatırla المرضية الشديدة'],
+      contraindications: ['ضعف المناعة الشديد'],
       notes: 'يُعطى عند الولادة أو في أقرب فرصة. العلامة الطبيعية (التندب) تظهر بعد 6-8 أسابيع',
     ),
     Vaccine(
@@ -32,12 +32,12 @@ class VaccinationService extends ChangeNotifier {
       dueWeeks: 0,
       doseNumber: 'جرعة الولادة',
       route: 'intramuscular',
-      site: 'الفخذ الأمامي الخارجي',
+      site: 'الفخذ الأيمن الأمامي',
       color: '#3498DB',
       iconEmoji: '💉',
       sideEffects: ['ألم بسيط مكان الحقن', 'حرارة خفيفة'],
       contraindications: ['حساسية شديدة لمكونات التطعيم'],
-      notes: 'تعطى خلال أول 24 ساعة من الولادة، خاصة للأمهات الحاملات للفيروس',
+      notes: 'تُعطى خلال أول 24 ساعة من الولادة، خاصة للأمهات الحاملات للفيروس',
     ),
     Vaccine(
       id: 'opv0',
@@ -79,7 +79,7 @@ class VaccinationService extends ChangeNotifier {
       dueWeeks: 6,
       doseNumber: 'الجرعة الأولى',
       route: 'intramuscular',
-      site: 'الفخذ الأمامي الخارجي (اليسار)',
+      site: 'الفخذ الأيسر الأمامي',
       color: '#E67E22',
       iconEmoji: '5️⃣',
       sideEffects: ['ألم واحمرار مكان الحقن', 'حرارة', 'بكاء غير معتاد'],
@@ -94,7 +94,7 @@ class VaccinationService extends ChangeNotifier {
       dueWeeks: 6,
       doseNumber: 'الجرعة الأولى',
       route: 'intramuscular',
-      site: 'الفخذ الأمامي الخارجي (اليمين)',
+      site: 'الفخذ الأيسر الأمامي',
       color: '#8E44AD',
       iconEmoji: '🫁',
       sideEffects: ['ألم مكان الحقن', 'حرارة', 'نعاس'],
@@ -141,7 +141,7 @@ class VaccinationService extends ChangeNotifier {
       dueWeeks: 10,
       doseNumber: 'الجرعة الثانية',
       route: 'intramuscular',
-      site: 'الفخذ الأمامي الخارجي',
+      site: 'الفخذ الأيسر الأمامي',
       color: '#E67E22',
       iconEmoji: '5️⃣',
       sideEffects: ['ألم مكان الحقن', 'حرارة خفيفة'],
@@ -156,7 +156,7 @@ class VaccinationService extends ChangeNotifier {
       dueWeeks: 10,
       doseNumber: 'الجرعة الثانية',
       route: 'intramuscular',
-      site: 'الفخذ الأمامي الخارجي',
+      site: 'الفخذ الأيسر الأمامي',
       color: '#8E44AD',
       iconEmoji: '🫁',
       sideEffects: ['ألم مكان الحقن'],
@@ -203,7 +203,7 @@ class VaccinationService extends ChangeNotifier {
       dueWeeks: 14,
       doseNumber: 'الجرعة الثالثة',
       route: 'intramuscular',
-      site: 'الفخذ الأمامي الخارجي',
+      site: 'الفخذ الأيسر الأمامي',
       color: '#E67E22',
       iconEmoji: '5️⃣',
       sideEffects: ['ألم مكان الحقن', 'حرارة خفيفة'],
@@ -218,7 +218,7 @@ class VaccinationService extends ChangeNotifier {
       dueWeeks: 14,
       doseNumber: 'الجرعة الثالثة',
       route: 'intramuscular',
-      site: 'الفخذ الأمامي الخارجي',
+      site: 'الفخذ الأيسر الأمامي',
       color: '#8E44AD',
       iconEmoji: '🫁',
       sideEffects: [],
@@ -233,7 +233,7 @@ class VaccinationService extends ChangeNotifier {
       dueWeeks: 14,
       doseNumber: 'جرعة واحدة',
       route: 'intramuscular',
-      site: 'الفخذ الأمامي الخارجي',
+      site: 'الفخذ الأيسر الأمامي',
       color: '#2C3E50',
       iconEmoji: '💉',
       sideEffects: ['ألم مكان الحقن', 'احمرار'],
@@ -243,10 +243,10 @@ class VaccinationService extends ChangeNotifier {
 
     // ──────────── عمر 9 أشهر ────────────
     Vaccine(
-      id: 'measles1',
-      nameAr: 'الحصبة - الجرعة الأولى',
-      nameEn: 'Measles Vaccine Dose 1',
-      description: 'الجرعة الأولى من تطعيم الحصبة - تحمي من مرض الحصبة الخطير',
+      id: 'mr1',
+      nameAr: 'الحصبة والحصبة الألمانية (MR) - الجرعة الأولى',
+      nameEn: 'Measles-Rubella (MR) Dose 1',
+      description: 'الجرعة الأولى من تطعيم الحصبة والحصبة الألمانية - يحمي من مرض الحصبة الخطير والحصبة الألمانية',
       dueMonths: 9,
       doseNumber: 'الجرعة الأولى',
       route: 'subcutaneous',
@@ -254,25 +254,25 @@ class VaccinationService extends ChangeNotifier {
       color: '#C0392B',
       iconEmoji: '🔴',
       sideEffects: ['حرارة بعد 5-12 يوم', 'طفح جلدي خفيف', 'ألم مكان الحقن'],
-      contraindications: ['ضعف المناعة الشديد', 'ال hatırla'],
-      notes: 'تطعيم مهم جداً! الحصبة خطيرة على الأطفال. يُعطى في عمر 9 أشهر',
+      contraindications: ['ضعف المناعة الشديد'],
+      notes: 'تطعيم مهم جداً! الحصبة خطيرة على الأطفال. يُعطى في عمر 9 أشهر. الحرارة بعد 5-12 يوم طبيعية',
     ),
 
-    // ──────────── عمر 12 شهر ────────────
+    // ──────────── عمر 15 شهر ────────────
     Vaccine(
-      id: 'mmr',
-      nameAr: 'الحصبة والنكاف والحصبة الألمانية (MMR)',
-      nameEn: 'Measles, Mumps, Rubella (MMR)',
-      description: 'الجرعة الثانية - تطعيم ثلاثي ضد الحصبة والنكاف والحصبة الألمانية',
-      dueMonths: 12,
+      id: 'mr2',
+      nameAr: 'الحصبة والحصبة الألمانية (MR) - الجرعة الثانية',
+      nameEn: 'Measles-Rubella (MR) Dose 2',
+      description: 'الجرعة الثانية من تطعيم الحصبة والحصبة الألمانية - تكمل الحماية ضد المرضين',
+      dueMonths: 15,
       doseNumber: 'الجرعة الثانية',
       route: 'subcutaneous',
-      site: 'الذراع الأيمن',
+      site: 'الذراع الأيمن - فوق العضلة الدالية',
       color: '#C0392B',
       iconEmoji: '🔴',
       sideEffects: ['حرارة بعد 5-12 يوم', 'ألم مفاصل خفيف (نادر)'],
       contraindications: ['ضعف المناعة الشديد'],
-      notes: 'تُعطى بعد الحصبة الأولى بـ 3 أشهر على الأقل',
+      notes: 'الجرعة الثانية المكتملة - حماية كاملة ضد الحصبة والحصبة الألمانية',
     ),
 
     // ──────────── عمر 18 شهر ────────────
@@ -292,42 +292,42 @@ class VaccinationService extends ChangeNotifier {
       notes: 'جرعة معززة مهمة للحفاظ على المناعة',
     ),
 
-    // ──────────── عمر 24 شهر (⬡ متاح حسب البرنامج) ────────────
-    Vaccine(
-      id: 'mmr2',
-      nameAr: 'الحصبة والنكاف والحصبة الألمانية - الجرعة الثانية',
-      nameEn: 'MMR Dose 2',
-      description: 'الجرعة الثانية من تطعيم MMR (حسب توفر التطعيم)',
-      dueMonths: 24,
-      doseNumber: 'الجرعة الثانية',
-      route: 'subcutaneous',
-      site: 'الذراع الأيمن',
-      color: '#C0392B',
-      iconEmoji: '🔴',
-      sideEffects: [],
-      contraindications: [],
-      notes: 'حسب توفر التطعيم في المرفق الصحي',
-    ),
-
     // ──────────── عمر 6 سنوات (عند الالتحاق بالمدرسة) ────────────
     Vaccine(
       id: 'dtp_school',
-      nameAr: 'DTP - جرعة المدرسة',
+      nameAr: 'الخناق والكزاز والسعال الديبي (DTP) - جرعة المدرسة',
       nameEn: 'DTP School Entry Booster',
-      description: 'جرعة معززة عند دخول المدرسة',
+      description: 'جرعة معززة عند دخول المدرسة في عمر 6 سنوات',
       dueMonths: 72, // 6 years
       doseNumber: 'جرعة المدرسة',
       route: 'intramuscular',
-      site: 'الذراع',
+      site: 'الذراع الأيسر',
       color: '#E67E22',
       iconEmoji: '🏫',
       sideEffects: ['ألم مكان الحقن'],
       contraindications: [],
       notes: 'جرعة معززة عند دخول المدرسة',
     ),
+
+    // ──────────── عمر 12 سنة (للبنات) ────────────
+    Vaccine(
+      id: 'td_girls',
+      nameAr: 'الكزاز والخناق (Td) - للبنات',
+      nameEn: 'Td for Girls (12 years)',
+      description: 'تطعيم ضد الكزاز والخناق للبنات في عمر 12 سنة - يحمي الأم والجنين مستقبلاً',
+      dueMonths: 144, // 12 years
+      doseNumber: 'جرعة واحدة',
+      route: 'intramuscular',
+      site: 'الذراع الأيسر',
+      color: '#E67E22',
+      iconEmoji: '👧',
+      sideEffects: ['ألم مكان الحقن', 'احمرار بسيط'],
+      contraindications: [],
+      notes: 'للبنات فقط في عمر 12 سنة. يحمي من الكزاز والخناق ويُعد للحماية أثناء الحمل مستقبلاً',
+    ),
   ];
 
-  // ──── المحافظات اليمنية ────
+  // ──── المحافظات اليمنية ────────────
   static const List<String> governorates = [
     'صنعاء',
     'عدن',
@@ -353,7 +353,7 @@ class VaccinationService extends ChangeNotifier {
     'أرخبيل سقطرى',
   ];
 
-  // ──── الحصول على التطعيمات حسب العمر ────
+  // ──── الحصول على التطعيمات حسب العمر ────────────
   List<Vaccine> getVaccinesDueAtAge(int weeks, int months) {
     return allVaccines.where((v) {
       if (v.dueMonths > 0) return months >= v.dueMonths;
@@ -378,7 +378,7 @@ class VaccinationService extends ChangeNotifier {
     }).toList();
   }
 
-  // ──── جدول التطعيم الكامل ────
+  // ──── جدول التطعيم الكامل ────────────
   Map<String, List<Vaccine>> getFullSchedule() {
     return {
       'عند الولادة': allVaccines.where((v) => v.dueWeeks == 0).toList(),
@@ -386,10 +386,10 @@ class VaccinationService extends ChangeNotifier {
       '10 أسابيع': allVaccines.where((v) => v.dueWeeks == 10).toList(),
       '14 أسبوع': allVaccines.where((v) => v.dueWeeks == 14).toList(),
       '9 أشهر': allVaccines.where((v) => v.dueMonths == 9).toList(),
-      '12 شهر': allVaccines.where((v) => v.dueMonths == 12).toList(),
+      '15 شهر': allVaccines.where((v) => v.dueMonths == 15).toList(),
       '18 شهر': allVaccines.where((v) => v.dueMonths == 18).toList(),
-      '24 شهر': allVaccines.where((v) => v.dueMonths == 24).toList(),
       '6 سنوات': allVaccines.where((v) => v.dueMonths == 72).toList(),
+      '12 سنة': allVaccines.where((v) => v.dueMonths == 144).toList(),
     };
   }
 }
