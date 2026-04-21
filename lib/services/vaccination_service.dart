@@ -288,27 +288,12 @@ class VaccinationService extends ChangeNotifier {
       notes: 'تُعطى في عمر 6 أشهر. كبسولة زرقاء تحتوي على 100,000 وحدة دولية. تقوي المناعة وتقلل وفيات الحصبة بنسبة 50%',
     ),
 
-    // ──────────── عمر 15 شهر ────────────
-    Vaccine(
-      id: 'mr2',
-      nameAr: 'الحصبة والحصبة الألمانية (MR) - الجرعة الثانية',
-      nameEn: 'Measles-Rubella (MR) Dose 2',
-      description: 'الجرعة الثانية من تطعيم الحصبة والحصبة الألمانية - تكمل الحماية ضد المرضين',
-      dueMonths: 15,
-      doseNumber: 'الجرعة الثانية',
-      route: 'subcutaneous',
-      site: 'الذراع الأيمن - فوق العضلة الدالية',
-      color: '#C0392B',
-      iconEmoji: '🔴',
-      sideEffects: ['حرارة بعد 5-12 يوم', 'ألم مفاصل خفيف (نادر)'],
-      contraindications: ['ضعف المناعة الشديد'],
-      notes: 'الجرعة الثانية المكتملة - حماية كاملة ضد الحصبة والحصبة الألمانية',
-    ),
+    // ──────────── عمر 12 شهر ────────────
     Vaccine(
       id: 'vitA_2',
       nameAr: 'فيتامين أ - جرعة 12 شهر',
       nameEn: 'Vitamin A - 200,000 IU (12 months)',
-      description: 'كبسولة فيتامين أ (200,000 وحدة دولية) - تُكرر كل 6 أشهر من عمر 12 شهر',
+      description: 'كبسولة فيتامين أ (200,000 وحدة دولية)',
       dueMonths: 12,
       doseNumber: 'جرعة واحدة (كبسولة حمراء)',
       route: 'oral',
@@ -317,10 +302,25 @@ class VaccinationService extends ChangeNotifier {
       iconEmoji: '🌟',
       sideEffects: ['لا توجد آثار جانبية شائعة'],
       contraindications: [],
-      notes: 'تُعطى في عمر 12 شهر. كبسولة حمراء تحتوي على 200,000 وحدة دولية. تُكرر كل 6 أشهر',
+      notes: 'تُعطى في عمر 12 شهر. كبسولة حمراء تحتوي على 200,000 وحدة دولية',
     ),
 
     // ──────────── عمر 18 شهر ────────────
+    Vaccine(
+      id: 'mr2',
+      nameAr: 'الحصبة والحصبة الألمانية (MR) - الجرعة الثانية',
+      nameEn: 'Measles-Rubella (MR) Dose 2',
+      description: 'الجرعة الثانية من تطعيم الحصبة والحصبة الألمانية - تكمل الحماية ضد المرضين',
+      dueMonths: 18,
+      doseNumber: 'الجرعة الثانية',
+      route: 'subcutaneous',
+      site: 'الذراع الأيمن - فوق العضلة الدالية',
+      color: '#C0392B',
+      iconEmoji: '🔴',
+      sideEffects: ['حرارة بعد 5-12 يوم', 'ألم مفاصل خفيف (نادر)'],
+      contraindications: ['ضعف المناعة الشديد'],
+      notes: 'الجرعة الثانية المكتملة - حماية كاملة ضد الحصبة والحصبة الألمانية. تُعطى في عمر 18 شهر',
+    ),
     Vaccine(
       id: 'dtp_booster',
       nameAr: 'الخناق والكزاز والسعال الديبي (DTP) - جرعة معززة',
@@ -334,7 +334,7 @@ class VaccinationService extends ChangeNotifier {
       iconEmoji: '💪',
       sideEffects: ['ألم مكان الحقن', 'حرارة'],
       contraindications: [],
-      notes: 'جرعة معززة مهمة للحفاظ على المناعة. تُعطى في عمر 18 شهر',
+      notes: 'جرعة معززة مهمة للحفاظ على المناعة. تُعطى في عمر 18 شهر مع MR2 وOPV5',
     ),
     Vaccine(
       id: 'opv5',
@@ -349,7 +349,7 @@ class VaccinationService extends ChangeNotifier {
       iconEmoji: '💧',
       sideEffects: ['لا توجد آثار جانبية شائعة'],
       contraindications: ['ضعف المناعة الشديد'],
-      notes: 'تُعطى مع DTP المعززة في عمر 18 شهر لتعزيز المناعة ضد شلل الأطفال',
+      notes: 'تُعطى مع DTP المعززة وMR2 في عمر 18 شهر لتعزيز المناعة ضد شلل الأطفال',
     ),
     Vaccine(
       id: 'vitA_3',
@@ -364,7 +364,7 @@ class VaccinationService extends ChangeNotifier {
       iconEmoji: '🌟',
       sideEffects: ['لا توجد آثار جانبية شائعة'],
       contraindications: [],
-      notes: 'تُعطى في عمر 18 شهر مع DTP المعززة وOPV5. كبسولة حمراء (200,000 وحدة دولية)',
+      notes: 'تُعطى في عمر 18 شهر مع DTP المعززة وMR2 وOPV5. كبسولة حمراء (200,000 وحدة دولية)',
     ),
 
     // ──────────── عمر 6 سنوات (عند الالتحاق بالمدرسة) ────────────
@@ -493,7 +493,6 @@ class VaccinationService extends ChangeNotifier {
       '14 أسبوع': allVaccines.where((v) => v.dueWeeks == 14).toList(),
       '9 أشهر': allVaccines.where((v) => v.dueMonths == 9).toList(),
       '12 شهر': allVaccines.where((v) => v.dueMonths == 12).toList(),
-      '15 شهر': allVaccines.where((v) => v.dueMonths == 15).toList(),
       '18 شهر': allVaccines.where((v) => v.dueMonths == 18).toList(),
       '6 سنوات': allVaccines.where((v) => v.dueMonths == 72).toList(),
       '12 سنة': allVaccines.where((v) => v.dueMonths == 144).toList(),
