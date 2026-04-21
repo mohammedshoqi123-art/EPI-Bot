@@ -267,8 +267,6 @@ class ChatService extends ChangeNotifier {
 
     // --- كم جرعة (generic) ---
     if (norm.contains('كم جرعة') || norm.contains('كم جرعه') || norm.contains('كم حقه') || norm.contains('كم حقنة')) {
-      final v = SmartNLP.detectVaccineMention(norm);
-      if (v != null) return _handleDose(norm);
       return _handleDose(norm);
     }
 
@@ -330,6 +328,36 @@ class ChatService extends ChangeNotifier {
     if (norm.contains('المحاقن')) {
       _ctx.lastTopic = 'المحاقن';
       return _Resp(_kb['المحاقن'] ?? '', _ctxReplies('cold_chain'));
+    }
+
+    // --- الأزمات ---
+    if (norm.contains('ازمه') || norm.contains('حرب') || norm.contains('صعوبات') || norm.contains('ازمة')) {
+      _ctx.lastTopic = 'التحصين في الأزمات';
+      return _Resp(_kb['التحصين في الأزمات'] ?? '', [const QuickReply(text: 'التحصين في المناطق النائية', emoji: '🏔️'), const QuickReply(text: 'التحصين للنازحين', emoji: '🏚️')]);
+    }
+
+    // --- النازحين ---
+    if (norm.contains('نازح') || norm.contains('نزوح') || norm.contains('مخيم')) {
+      _ctx.lastTopic = 'التحصين للنازحين';
+      return _Resp(_kb['التحصين للنازحين'] ?? '', [const QuickReply(text: 'وين أطعم؟', emoji: '📍'), const QuickReply(text: 'هل مجاني؟', emoji: '💰')]);
+    }
+
+    // --- المناطق النائية ---
+    if (norm.contains('نائيه') || norm.contains('ريف') || norm.contains('بعيد') || norm.contains('جبليه')) {
+      _ctx.lastTopic = 'التحصين في المناطق النائية';
+      return _Resp(_kb['التحصين في المناطق النائية'] ?? '', [const QuickReply(text: 'التحصين للنازحين', emoji: '🏚️'), const QuickReply(text: 'حملات التطعيم', emoji: '🚐')]);
+    }
+
+    // --- جهاز المناعة ---
+    if (norm.contains('جهاز المناعه') || norm.contains('كيف يشتغل المناعه') || norm.contains('اجسام مضاده')) {
+      _ctx.lastTopic = 'التفاعلات المناعية المتقدمة';
+      return _Resp(_kb['التفاعلات المناعية المتقدمة'] ?? '', _welcomeReplies());
+    }
+
+    // --- الوصايا الذهبية ---
+    if (norm.contains('وصايا') || norm.contains('نصائح مهمه للتطعيم') || norm.contains('ارشادات')) {
+      _ctx.lastTopic = 'الوصايا الذهبية للتطعيم';
+      return _Resp(_kb['الوصايا الذهبية للتطعيم'] ?? '', _welcomeReplies());
     }
 
     return null; // لم يتم التعرف على الرسالة مباشرة
@@ -692,16 +720,57 @@ class ChatService extends ChangeNotifier {
   }
 
   _Resp _handleEmergency(String n) {
+    // كشف حالة طوارئ مباشرة
+    if (RegExp(r'تشنج|نوبه|يرتعش|يسكر|ما يتنفس|ما يرد|اختنق|فقد وعي|شحوب شديد|يموت').hasMatch(n)) {
+      return _Resp(
+        '🚨 ⚡️ حالة طوارئ!\n\n'
+        '1. اطلب الإسعاف فوراً (333 أو 119)\n'
+        '2. ضع الطفل على جانبه في وضع التعافي\n'
+        '3. لا تضع شيء في فمه أبداً\n'
+        '4. لو كان يتنفس → أرجع رأسه قليلاً\n'
+        '5. دوّن مدة الحالة والحرارة\n\n'
+        '⏰ لا تنتظر! اذهب للمستشفى أو اطلب إسعاف الآن!',
+        [const QuickReply(text: 'وش أسوي بعد كذا؟', emoji: '🚨'), const QuickReply(text: 'كيف أحميه من الحرارة؟', emoji: '🌡️')],
+      );
+    }
+    
+    // كشف حرارة عالية
+    final temp = SmartNLP.extractTemperature(n);
+    if (temp != null && temp >= 39) {
+      return _Resp(
+        '🚨 حرارة طفلك ${temp}° عالية! ⚠️\n\n'
+        '📋 افعل هذا فوراً:\n'
+        '1. كمادات ماء دافئ على الجبه\n'
+        '2. أزع عنه الملابس الزائدة\n'
+        '3. أعطه بارادول حسب وزنه\n'
+        '4. هوّن المراوح\n'
+        '5. إذا لم تنخفض خلال ساعة ← اذهب للمستشفى\n\n'
+        '📏 الجرعة: 15 ملجم/كجم كل 4-6 ساعات\n'
+        '⚠️ لا تعطه أسبرين أبداً للطفل!\n'
+        '📞 اذهب للمستشفى أو اطلب الإسعاف!',
+        [const QuickReply(text: 'كم جرعة بارادول؟', emoji: '💊'), const QuickReply(text: 'متى أروح للمستشفى؟', emoji: '🏥')],
+      );
+    }
+
     return _Resp(
       '🚨 متى تطلب طبيب فوراً؟\n\n'
       '━━ خلال دقائق (طوارئ) ━━\n'
-      '🔴 صعوبة تنفس\n🔴 تورم وجه/حلق\n🔴 شحوب شديد\n🔴 فقد وعي\n\n'
+      '🔴 صعوبة تنفس\n'
+      '🔴 تورم وجه/حلق/لسان\n'
+      '🔴 شحوب شديد أو فقد وعي\n'
+      '🔴 تشنجات\n\n'
       '━━ خلال ساعات ━━\n'
-      '🟠 حرارة أكثر من 39.5°\n🟠 تشنجات\n🟠 طفح شديد\n🟠 بكاء أكثر من 3 ساعات\n\n'
+      '🟠 حرارة أكثر من 39.5° لا تنخفض\n'
+      '🟠 بكاء مستمر أكثر من 3 ساعات\n'
+      '🟠 طفح جلدي شديد أو شرى\n'
+      '🟠 تورم يزداد بسرعة\n\n'
       '━━ خلال يومين ━━\n'
-      '🟡 حرارة مستمرة 48 ساعة\n🟡 تورم يزداد\n🟡 قيء مستمر\n\n'
-      '⏰ انتظر 15-30 دقيقة بعد التطعيم في المركز!',
-      [const QuickReply(text: 'حرارة بعد التطعيم', emoji: '🌡️'), const QuickReply(text: 'تشنجات', emoji: '🚨')],
+      '🟡 حرارة مستمرة 48 ساعة\n'
+      '🟡 قيء مستمر مع جفاف\n'
+      '🟡 عدم القدرة على الرضاعة\n\n'
+      '⏰ انتظر 15-30 دقيقة بعد التطعيم في المركز الصحي!\n'
+      '📞 خط الطوارئ: 333 أو 119',
+      [const QuickReply(text: 'حرارة بعد التطعيم', emoji: '🌡️'), const QuickReply(text: 'تشنجات', emoji: '🚨'), const QuickReply(text: 'تورم شديد', emoji: '⚠️')],
     );
   }
 
@@ -730,7 +799,7 @@ class ChatService extends ChangeNotifier {
   _Resp _handleSpecialCases(String n) {
     if (n.contains('مبتسر') || n.contains('خديج') || n.contains('مبكر') || n.contains('premature')) {
       _ctx.lastTopic = 'للأطفال المبتسرين';
-      return _Resp(_kb['لل الأطفال المبتسرين'] ?? _kb['للأطفال المبتسرين'] ?? 'عذراً', _ctxReplies('special'));
+      return _Resp(_kb['للأطفال المبتسرين'] ?? 'عذراً', _ctxReplies('special'));
     }
     if (n.contains('مريض') || n.contains('مريضه') || n.contains('مريضين')) {
       _ctx.lastTopic = 'للأطفال المرضى';
@@ -1035,6 +1104,18 @@ class ChatService extends ChangeNotifier {
         '• "ولدي حرارته 39 وش أسوي؟"\n'
         '• "وش الأشراف الداعم؟"\n\n'
         'أو اختر من الاقتراحات 👇',
+        _welcomeReplies(),
+      );
+    }
+
+    // إذا عندنا اسم الطفل، نذكره في الرد
+    if (_ctx.child.name != null && n.length < 15) {
+      return _Resp(
+        '💡 ${_ctx.child.name} - أنا هنا أساعدك!\n\n'
+        'جرب تسألني:\n'
+        '• "تطعيمات ${_ctx.child.name}？"\n'
+        '• "وش آثار الخماسي？"\n'
+        '• "متى أخاف عليه？"',
         _welcomeReplies(),
       );
     }
