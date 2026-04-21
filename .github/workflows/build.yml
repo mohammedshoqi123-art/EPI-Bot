@@ -43,6 +43,16 @@ jobs:
       - name: Generate platform directories
         run: flutter create . --org ye.gov.health --project-name yemen_epi_bot --platforms android --no-overwrite
 
+      - name: Fix Kotlin & Gradle versions for compatibility
+        run: |
+          # Upgrade Kotlin version in settings.gradle
+          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/' android/settings.gradle
+          # Upgrade Gradle wrapper to 8.x
+          sed -i 's/distributionUrl=.*/distributionUrl=https\\:\/\/services.gradle.org\/distributions\/gradle-8.3-all.zip/' android/gradle/wrapper/gradle-wrapper.properties
+          # Set Kotlin JVM target
+          echo "kotlin.jvm.target=17" >> android/gradle.properties
+          echo "kotlin.jvm.toolchain=17" >> android/gradle.properties
+
       - name: Install dependencies
         run: flutter pub get
 
