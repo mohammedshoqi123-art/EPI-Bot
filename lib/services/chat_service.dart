@@ -1147,7 +1147,7 @@ class ChatService extends ChangeNotifier {
           return _Resp(_kb[key] ?? '', _ctxReplies(key));
         }
         // تطبيق المرادفات
-        final syns = SmartNLP._synonyms[word];
+        final syns = SmartNLP.synonyms[word];
         if (syns != null) {
           for (final syn in syns) {
             for (final key in _kb.keys) {

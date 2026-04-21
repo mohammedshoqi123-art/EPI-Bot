@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:provider/provider.dart';
 import '../constants/app_theme.dart';
 import '../models/vaccine_model.dart';
 import '../services/specialized_chat_service.dart';
