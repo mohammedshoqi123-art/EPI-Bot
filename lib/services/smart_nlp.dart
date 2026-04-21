@@ -110,7 +110,14 @@ class SmartNLP {
   static ({int weeks, int months, int days})? extractAge(String text) {
     final n = normalize(text);
 
-    // أنماط خاصة -_dual form
+    // أنماط "عمره شهر" بدون رقم = شهر واحد (Quick Reply buttons)
+    if (n.contains('عمره شهر') && !RegExp(r'\d').hasMatch(n.split('شهر')[0])) return (weeks: 4, months: 1, days: 0);
+    if (n.contains('عنده شهر') && !RegExp(r'\d').hasMatch(n.split('شهر')[0])) return (weeks: 4, months: 1, days: 0);
+    if (n.contains('عمرها شهر') && !RegExp(r'\d').hasMatch(n.split('شهر')[0])) return (weeks: 4, months: 1, days: 0);
+    if (n.contains('عمره شهرين')) return (weeks: 8, months: 2, days: 0);
+    if (n.contains('عنده شهرين')) return (weeks: 8, months: 2, days: 0);
+
+    // أنماط خاصة - صيغة المثنى والجمع
     if (n.contains('شهرين')) return (weeks: 0, months: 2, days: 0);
     if (n.contains('اسبوعين') || n.contains('اسبوعان')) return (weeks: 2, months: 0, days: 0);
     if (n.contains('يومين')) return (weeks: 0, months: 0, days: 2);

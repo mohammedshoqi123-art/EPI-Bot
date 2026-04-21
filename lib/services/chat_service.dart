@@ -306,6 +306,23 @@ class ChatService extends ChangeNotifier {
       return _Resp(_kb['الرضاعة والتطعيم'] ?? '', _ctxReplies('nutrition'));
     }
 
+    // --- هل أطعم وهو مريض ---
+    if (norm.contains('هل اطعم وهو مريض') || norm.contains('هل أطعم وهو مريض') || norm.contains('اطعم وهو مريض') || norm.contains('أطعم وهو مريض')) {
+      return _handleChildSick(norm);
+    }
+
+    // --- جدول التحصين ---
+    if (norm.contains('جدول التحصين') || norm.contains('جدول التطعيم') || norm.contains('كل التطعيمات') || norm.contains('جدول كامل')) {
+      _ctx.lastTopic = 'جدول التحصين';
+      return _Resp(_kb['جدول التحصين لدون العام'] ?? _kb['متى أطعم'] ?? '', _ctxReplies('vaccine_list'));
+    }
+
+    // --- الفرق بين OPV و IPV (without specifying both) ---
+    if ((norm.contains('الفرق') && (norm.contains('شلل') || norm.contains('opv') || norm.contains('ipv')))) {
+      _ctx.lastTopic = 'الفرق بين OPV و IPV';
+      return _Resp(_kb['الفرق بين OPV و IPV'] ?? '', _ctxReplies('cold_chain'));
+    }
+
     // --- فيتامين أ ---
     if (norm.contains('فيتامين')) {
       _ctx.lastTopic = 'فيتامين أ';
