@@ -1590,7 +1590,7 @@ class ProactiveAdvisor {
     _VaccineSchedule(ageMonths: 0, ageWeeks: 14, vaccines: ['شلل الأطفال - OPV3', 'الخماسي 3', 'الرئوي 3', 'شلل الأطفال الحقني - IPV']),
     _VaccineSchedule(ageMonths: 9, ageWeeks: 0, vaccines: ['الحصبة والحصبة الألمانية - MR1', 'شلل الأطفال - OPV4']),
     _VaccineSchedule(ageMonths: 12, ageWeeks: 0, vaccines: ['فيتامين أ (٢٠٠,٠٠٠ وحدة دولية)']),
-    _VaccineSchedule(ageMonths: 18, ageWeeks: 0, vaccines: ['الحصبة - MR2', 'DTP معززة', 'شلل الأطفال - OPV5', 'فيتامين أ']),
+    _VaccineSchedule(ageMonths: 18, ageWeeks: 0, vaccines: ['الحصبة - MR2', 'Penta4 (خماسي تعزيزية)', 'شلل الأطفال - OPV5', 'فيتامين أ']),
     _VaccineSchedule(ageMonths: 72, ageWeeks: 0, vaccines: ['DTP جرعة المدرسة', 'MR جرعة المدرسة', 'فيتامين أ']),
     _VaccineSchedule(ageMonths: 144, ageWeeks: 0, vaccines: ['Td للبنات']),
   ];

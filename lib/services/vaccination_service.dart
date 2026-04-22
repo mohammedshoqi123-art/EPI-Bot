@@ -22,7 +22,7 @@ class VaccinationService extends ChangeNotifier {
       iconEmoji: '🩸',
       sideEffects: ['احمرار مكان الحقن', 'تورم بسيط', 'قُرحة صغيرة تشفى تلقائياً خلال 2-3 أشهر'],
       contraindications: ['ضعف المناعة الشديد'],
-      notes: 'يُعطى عند الولادة أو في أقرب فرصة. العلامة الطبيعية (التندب) تظهر بعد 6-8 أسابيع',
+      notes: 'يُعطى عند الولادة أو في أقرب فرصة. الحد الأقصى: سنة واحدة (12 شهر) — بعد السنة لا يُعطي. العلامة الطبيعية (التندب) تظهر بعد 6-8 أسابيع',
     ),
     Vaccine(
       id: 'hepb0',
@@ -226,19 +226,34 @@ class VaccinationService extends ChangeNotifier {
       notes: 'الجرعة الثالثة المكتملة',
     ),
     Vaccine(
-      id: 'ipv',
-      nameAr: 'شلل الأطفال الحقني (IPV)',
-      nameEn: 'Inactivated Polio Vaccine',
-      description: 'تطعيم شلل الأطفال الحقني - يُعطى جرعة واحدة مع الجرعة الثالثة من OPV',
+      id: 'ipv1',
+      nameAr: 'شلل الأطفال الحقني (IPV) - الجرعة الأولى',
+      nameEn: 'Inactivated Polio Vaccine - Dose 1',
+      description: 'الجرعة الأولى من تطعيم شلل الأطفال الحقني',
       dueWeeks: 14,
-      doseNumber: 'جرعة واحدة',
+      doseNumber: 'الجرعة الأولى',
       route: 'intramuscular',
       site: 'الفخذ الأيسر الأمامي',
       color: '#2C3E50',
       iconEmoji: '💉',
       sideEffects: ['ألم مكان الحقن', 'احمرار'],
       contraindications: [],
-      notes: 'يُعطى مع OPV3 لتعزيز المناعة',
+      notes: 'يُعطى مع OPV3 عند 14 أسبوع. الحد الأقصى: 5 سنوات',
+    ),
+    Vaccine(
+      id: 'ipv2',
+      nameAr: 'شلل الأطفال الحقني (IPV) - الجرعة الثانية',
+      nameEn: 'Inactivated Polio Vaccine - Dose 2',
+      description: 'الجرعة الثانية من تطعيم شلل الأطفال الحقني',
+      dueMonths: 9,
+      doseNumber: 'الجرعة الثانية',
+      route: 'intramuscular',
+      site: 'الفخذ الأيسر الأمامي',
+      color: '#2C3E50',
+      iconEmoji: '💉',
+      sideEffects: ['ألم مكان الحقن', 'احمرار'],
+      contraindications: [],
+      notes: 'يُعطى مع MR1 عند 9 أشهر. الحد الأقصى: 5 سنوات',
     ),
 
     // ──────────── عمر 9 أشهر ────────────
@@ -273,21 +288,21 @@ class VaccinationService extends ChangeNotifier {
       notes: 'تُعطى مع MR1 في عمر 9 أشهر لتعزيز المناعة ضد شلل الأطفال',
     ),
 
-    // ──────────── عمر 12 شهر ────────────
+    // ──────────── عمر 9 أشهر (فيتامين أ) ────────────
     Vaccine(
-      id: 'vitA_2',
-      nameAr: 'فيتامين أ - جرعة 12 شهر',
-      nameEn: 'Vitamin A - 200,000 IU (12 months)',
-      description: 'كبسولة فيتامين أ (200,000 وحدة دولية)',
-      dueMonths: 12,
-      doseNumber: 'جرعة واحدة (كبسولة حمراء)',
+      id: 'vitA_1',
+      nameAr: 'فيتامين أ - جرعة 9 أشهر',
+      nameEn: 'Vitamin A - 100,000 IU (9 months)',
+      description: 'كبسولة فيتامين أ (100,000 وحدة دولية) — الجرعة الأولى',
+      dueMonths: 9,
+      doseNumber: 'جرعة واحدة (كبسولة زرقاء)',
       route: 'oral',
       site: 'عن طريق الفم',
       color: '#F39C12',
       iconEmoji: '🌟',
       sideEffects: ['لا توجد آثار جانبية شائعة'],
       contraindications: [],
-      notes: 'تُعطى في عمر 12 شهر. كبسولة حمراء تحتوي على 200,000 وحدة دولية',
+      notes: 'تُعطى في عمر 9 أشهر مع MR1. كبسولة زرقاء (100,000 وحدة دولية). الحد الأقصى: 5 سنوات',
     ),
 
     // ──────────── عمر 18 شهر ────────────
@@ -307,19 +322,19 @@ class VaccinationService extends ChangeNotifier {
       notes: 'الجرعة الثانية المكتملة - حماية كاملة ضد الحصبة والحصبة الألمانية. تُعطى في عمر 18 شهر',
     ),
     Vaccine(
-      id: 'dtp_booster',
-      nameAr: 'الخناق والكزاز والسعال الديبي (DTP) - جرعة معززة',
-      nameEn: 'DTP Booster',
-      description: 'جرعة معززة من التطعيم الثلاثي للخناق والكزاز والسعال الديبي',
+      id: 'penta4',
+      nameAr: 'التطعيم الخماسي - الجرعة التعزيزية (Penta4)',
+      nameEn: 'Pentavalent Booster (Penta4)',
+      description: 'جرعة تعزيزية من التطعيم الخماسي: الدفتيريا + الكزاز + السعال الديكي + الكبد B + المستديمة النزلية',
       dueMonths: 18,
-      doseNumber: 'جرعة معززة',
+      doseNumber: 'جرعة تعزيزية',
       route: 'intramuscular',
       site: 'الذراع الأيسر',
       color: '#E67E22',
       iconEmoji: '💪',
       sideEffects: ['ألم مكان الحقن', 'حرارة'],
       contraindications: [],
-      notes: 'جرعة معززة مهمة للحفاظ على المناعة. تُعطى في عمر 18 شهر مع MR2 وOPV5',
+      notes: 'جرعة تعزيزية مهمة. تُعطى في عمر 18 شهر مع MR2 وOPV5. الحد الأقصى: 5 سنوات',
     ),
     Vaccine(
       id: 'opv5',
@@ -334,7 +349,7 @@ class VaccinationService extends ChangeNotifier {
       iconEmoji: '💧',
       sideEffects: ['لا توجد آثار جانبية شائعة'],
       contraindications: ['ضعف المناعة الشديد'],
-      notes: 'تُعطى مع DTP المعززة وMR2 في عمر 18 شهر لتعزيز المناعة ضد شلل الأطفال',
+      notes: 'تُعطى مع Penta4 وMR2 في عمر 18 شهر لتعزيز المناعة ضد شلل الأطفال',
     ),
     Vaccine(
       id: 'vitA_3',
@@ -349,24 +364,24 @@ class VaccinationService extends ChangeNotifier {
       iconEmoji: '🌟',
       sideEffects: ['لا توجد آثار جانبية شائعة'],
       contraindications: [],
-      notes: 'تُعطى في عمر 18 شهر مع DTP المعززة وMR2 وOPV5. كبسولة حمراء (200,000 وحدة دولية)',
+      notes: 'تُعطى في عمر 18 شهر مع Penta4 وMR2 وOPV5. كبسولة حمراء (200,000 وحدة دولية)',
     ),
 
     // ──────────── عمر 6 سنوات (عند الالتحاق بالمدرسة) ────────────
     Vaccine(
-      id: 'dtp_school',
-      nameAr: 'الخناق والكزاز والسعال الديبي (DTP) - جرعة المدرسة',
-      nameEn: 'DTP School Entry Booster',
-      description: 'جرعة معززة عند دخول المدرسة في عمر 6 سنوات',
+      id: 'td_school',
+      nameAr: 'الكزاز والخناق (Td) - جرعة المدرسة',
+      nameEn: 'Td School Entry Booster',
+      description: 'جرعة تعزيزية من Td (الكزاز والخناق) عند دخول المدرسة',
       dueMonths: 72, // 6 years
-      doseNumber: 'جرعة المدرسة',
+      doseNumber: 'جرعة واحدة',
       route: 'intramuscular',
       site: 'الذراع الأيسر',
       color: '#E67E22',
       iconEmoji: '🏫',
       sideEffects: ['ألم مكان الحقن'],
       contraindications: [],
-      notes: 'جرعة معززة عند دخول المدرسة في عمر 6 سنوات',
+      notes: 'Td وليس DTP! يُعطى عند دخول المدرسة (5-7 سنوات). الحد الأقصى: 7 سنوات',
     ),
     Vaccine(
       id: 'mr_school',
@@ -399,22 +414,6 @@ class VaccinationService extends ChangeNotifier {
       notes: 'تُعطى عند دخول المدرسة في عمر 6 سنوات',
     ),
 
-    // ──────────── عمر 12 سنة (للبنات) ────────────
-    Vaccine(
-      id: 'td_girls',
-      nameAr: 'الكزاز والخناق (Td) - للبنات',
-      nameEn: 'Td for Girls (12 years)',
-      description: 'تطعيم ضد الكزاز والخناق للبنات في عمر 12 سنة - يحمي الأم والجنين مستقبلاً',
-      dueMonths: 144, // 12 years
-      doseNumber: 'جرعة واحدة',
-      route: 'intramuscular',
-      site: 'الذراع الأيسر',
-      color: '#E67E22',
-      iconEmoji: '👧',
-      sideEffects: ['ألم مكان الحقن', 'احمرار بسيط'],
-      contraindications: [],
-      notes: 'للبنات فقط في عمر 12 سنة. يحمي من الكزاز والخناق ويُعد للحماية أثناء الحمل مستقبلاً',
-    ),
   ];
 
   // ──── المحافظات اليمنية ────────────
@@ -476,10 +475,10 @@ class VaccinationService extends ChangeNotifier {
       '10 أسابيع': allVaccines.where((v) => v.dueWeeks == 10).toList(),
       '14 أسبوع': allVaccines.where((v) => v.dueWeeks == 14).toList(),
       '9 أشهر': allVaccines.where((v) => v.dueMonths == 9).toList(),
-      '12 شهر (فيتامين أ)': allVaccines.where((v) => v.dueMonths == 12).toList(),
+      
       '18 شهر': allVaccines.where((v) => v.dueMonths == 18).toList(),
-      '6 سنوات (دخول المدرسة)': allVaccines.where((v) => v.dueMonths == 72).toList(),
-      '12 سنة (للبنات)': allVaccines.where((v) => v.dueMonths == 144).toList(),
+      '5-7 سنوات (دخول المدرسة)': allVaccines.where((v) => v.dueMonths == 72).toList(),
+      
     };
   }
 
